@@ -19,24 +19,26 @@ type FieldNode = {
 
 type SelectNode = FieldNode | JoinNode
 
-const mongoUri = process.env.MONGODB_URI
 const mongoDbName = process.env.MONGODB_DB || 'school'
-
-if (!mongoUri) {
-  throw new Error('MONGODB_URI is required. Set it in .env.local')
-}
 
 const globalMongo = globalThis as typeof globalThis & {
   __mongoClientPromise?: Promise<MongoClient>
   __mongoSetupPromise?: Promise<void>
 }
 
-const mongoClientPromise =
-  globalMongo.__mongoClientPromise ||
-  new MongoClient(mongoUri).connect()
+function getMongoUri(): string {
+  const uri = process.env.MONGODB_URI
+  if (!uri) {
+    throw new Error('MONGODB_URI is required. Set it in .env.local')
+  }
+  return uri
+}
 
-if (!globalMongo.__mongoClientPromise) {
-  globalMongo.__mongoClientPromise = mongoClientPromise
+function getMongoClientPromise(): Promise<MongoClient> {
+  if (!globalMongo.__mongoClientPromise) {
+    globalMongo.__mongoClientPromise = new MongoClient(getMongoUri()).connect()
+  }
+  return globalMongo.__mongoClientPromise
 }
 
 const relationMap: Record<string, Record<string, string>> = {
@@ -78,7 +80,7 @@ const validFields: Record<string, Set<string>> = {
 
 async function getDb() {
   await ensureMongoSetup()
-  const client = await mongoClientPromise
+  const client = await getMongoClientPromise()
   return client.db(mongoDbName)
 }
 
@@ -88,7 +90,7 @@ async function ensureMongoSetup() {
   }
 
   globalMongo.__mongoSetupPromise = (async () => {
-    const db = (await mongoClientPromise).db(mongoDbName)
+    const db = (await getMongoClientPromise()).db(mongoDbName)
 
     await Promise.all([
       db.collection('users').createIndex({ username: 1, role: 1 }, { unique: true }),
@@ -438,7 +440,7 @@ class MongoSupabaseQueryBuilder {
     return this
   }
 
-  async single() {
+  async single(): Promise<{ data: any; error: QueryError | null }> {
     const result = await this.execute()
     if (result.error) return result
     const rows = Array.isArray(result.data) ? result.data : []
@@ -446,14 +448,14 @@ class MongoSupabaseQueryBuilder {
     return { data: rows[0], error: null }
   }
 
-  async maybeSingle() {
+  async maybeSingle(): Promise<{ data: any; error: QueryError | null }> {
     const result = await this.execute()
     if (result.error) return result
     const rows = Array.isArray(result.data) ? result.data : []
     return { data: rows.length > 0 ? rows[0] : null, error: null }
   }
 
-  async execute() {
+  async execute(): Promise<{ data: any; error: QueryError | null }> {
     try {
       const db = await getDb()
       const collection = db.collection(this.table)

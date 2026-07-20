@@ -3,9 +3,9 @@ import { NextResponse } from 'next/server'
 
 const supabase = createClient()
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const facultyId = params.id
+    const { id: facultyId } = await params
 
     // Get faculty details with user info
     const { data: faculty, error } = await supabase

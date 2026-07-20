@@ -100,7 +100,7 @@ export async function getClassFaculty(standard: string, division: string) {
     }
 
     // Map faculty details to assignments
-    const facultyMap = new Map(facultyData?.map((f: any) => [f.id, f]) || [])
+    const facultyMap = new Map<string, any>(facultyData?.map((f: any) => [f.id, f]) || [])
     const transformedData = data.map((item: any) => ({
       id: item.id,
       standard: item.standard,

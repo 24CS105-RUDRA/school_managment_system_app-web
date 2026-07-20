@@ -16,10 +16,10 @@ import { getFacultyByUserId } from '@/lib/actions/faculty'
 interface Faculty {
   id: string
   user_id: string
-  assigned_standard: string
-  assigned_division: string
-  subject: string
-  faculty_name: string
+  assigned_standard?: string | null
+  assigned_division?: string | null
+  subject?: string
+  faculty_name?: string
 }
 
 interface User {
@@ -31,12 +31,12 @@ interface User {
 interface Homework {
   id: string
   title: string
-  description: string
+  description?: string
   standard: string
-  division: string
+  division?: string
   subject: string
   due_date: string
-  assigned_date: string
+  assigned_date?: string
   faculty_id: string
 }
 
@@ -137,7 +137,7 @@ export default function HomeworkPage() {
         faculty_id: faculty.id,
         standard: formData.standard,
         division: formData.division,
-        subject: faculty.subject,
+        subject: faculty.subject ?? '',
         title: formData.title,
         description: formData.description,
         due_date: formData.dueDate,

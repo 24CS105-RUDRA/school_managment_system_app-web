@@ -118,7 +118,7 @@ export async function getFoldersAndMaterialsByStandard(standard: string) {
     }
 
     const hierarchicalFolders = buildHierarchy(folders || [], materials || [])
-    const rootMaterials = (materials || []).filter((m) => !m.folder_id)
+    const rootMaterials = (materials || []).filter((m: any) => !m.folder_id)
 
     return { success: true, data: { folders: hierarchicalFolders, materials: rootMaterials } }
   } catch (error) {

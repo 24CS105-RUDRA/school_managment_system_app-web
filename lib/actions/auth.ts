@@ -3,6 +3,8 @@
 import { createClient } from '@/lib/supabase'
 import bcrypt from 'bcryptjs'
 import { sanitizePhoneNumber, validatePhoneNumber, validatePassword } from '@/lib/validations'
+import { setSessionTokens, clearSession } from '@/lib/middleware/session'
+import type { TokenPayload } from '@/lib/middleware/auth'
 
 const supabase = createClient()
 
@@ -152,6 +154,19 @@ export async function loginUser(credentials: LoginCredentials): Promise<LoginRes
     clearFailedAttempts(sanitizedUsername)
 
     console.log('[v0] Auth: Login successful for user:', sanitizedUsername)
+
+    const sessionUser: TokenPayload = {
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      email: user.email,
+      full_name: user.full_name,
+      year_of_study: user.year_of_study ?? undefined,
+      division: user.division ?? undefined,
+      standard: user.standard ?? undefined,
+    }
+
+    await setSessionTokens(sessionUser)
 
     return {
       success: true,
@@ -319,4 +334,9 @@ export async function seedDemoUsers(): Promise<{ success: boolean; message: stri
     console.error('[v0] Seed function error:', error)
     return { success: false, message: 'Failed to seed admin user' }
   }
+}
+
+export async function logoutUser(): Promise<{ success: boolean }> {
+  await clearSession()
+  return { success: true }
 }

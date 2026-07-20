@@ -19,12 +19,8 @@ interface Student {
   student_name?: string
   phone_number?: string
   parent_contact?: string
-  date_of_birth?: string
-  user_id?: {
-    full_name: string
-    email: string
-    username: string
-  }
+  date_of_birth?: string | null
+  user_id?: string
   user?: {
     full_name: string
     email: string
@@ -137,10 +133,10 @@ export default function StudentListsPage() {
   const handleEditStudent = (student: Student) => {
     setEditingStudentId(student.id)
     setFormData({
-      username: typeof student.user_id === 'object' ? student.user_id.username : '',
+      username: student.user?.username ?? '',
       password: '',
-      full_name: student.student_name || (typeof student.user_id === 'object' ? student.user_id.full_name : ''),
-      email: typeof student.user_id === 'object' ? student.user_id.email : '',
+      full_name: student.student_name || student.user?.full_name || '',
+      email: student.user?.email ?? '',
       roll_number: student.roll_number,
       standard: student.standard,
       division: student.division,
@@ -164,7 +160,7 @@ export default function StudentListsPage() {
         standard: formData.standard,
         division: formData.division,
         phone_number: formData.phone_number,
-        parent_contact: formData.parent_contact,
+        father_mobile: formData.parent_contact,
         date_of_birth: formData.date_of_birth,
       })
 
@@ -321,10 +317,10 @@ export default function StudentListsPage() {
                   <tbody>
                     {students.map((student) => (
                       <tr key={student.id} className="border-b border-border hover:bg-accent/10">
-                        <td className="py-3 px-4">{student.student_name || student.user?.full_name || (typeof student.user_id === 'object' && student.user_id?.full_name) || 'N/A'}</td>
+                        <td className="py-3 px-4">{student.student_name || student.user?.full_name || 'N/A'}</td>
                         <td className="py-3 px-4">{student.roll_number || 'N/A'}</td>
                         <td className="py-3 px-4">{student.standard}/{student.division}</td>
-                        <td className="py-3 px-4 text-sm">{typeof student.user_id === 'object' && student.user_id?.email ? student.user_id.email : student.user?.email || 'N/A'}</td>
+                        <td className="py-3 px-4 text-sm">{student.user?.email || 'N/A'}</td>
                         <td className="py-3 px-4 text-sm">{student.phone_number || 'N/A'}</td>
                         <td className="py-3 px-4 flex gap-2">
                           <button onClick={() => handleEditStudent(student)} className="p-2 rounded hover:bg-accent/20 text-accent">

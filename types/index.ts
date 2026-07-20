@@ -221,6 +221,7 @@ export interface ClassFacultyAssignment {
 export interface CreateStudentData {
   password: string
   full_name: string
+  email?: string
   roll_number: string
   standard: string
   division: string

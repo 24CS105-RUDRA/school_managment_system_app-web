@@ -258,6 +258,7 @@ export async function updateStudent(
   // Update user profile if needed
   const userUpdates: any = {}
   if (updates.full_name !== undefined) userUpdates.full_name = updates.full_name
+  if (updates.email !== undefined) userUpdates.email = updates.email
 
   if (Object.keys(userUpdates).length > 0) {
       const { error: userUpdateError } = await supabase

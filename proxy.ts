@@ -36,12 +36,21 @@ function applySecurityHeaders(response: NextResponse): NextResponse {
   return response;
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const loginRateLimitResponse = loginRateLimitMiddleware(request);
   if (loginRateLimitResponse) {
     return applySecurityHeaders(loginRateLimitResponse);
+  }
+
+  // Visiting /login clears any existing session cookie so a stale
+  // authenticated session does not linger after a manual re-login.
+  if (pathname === '/login' && request.cookies.has('accessToken')) {
+    const response = NextResponse.next();
+    response.cookies.set('accessToken', '', { path: '/', maxAge: 0 });
+    response.cookies.set('refreshToken', '', { path: '/', maxAge: 0 });
+    return applySecurityHeaders(response);
   }
 
   if (shouldApplySecurityHeaders(pathname)) {

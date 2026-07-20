@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactElement } from 'react'
 import { useRouter } from 'next/navigation'
 import { FacultySidebar } from '@/components/layout/faculty-sidebar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,8 +16,8 @@ import { getFacultyByUserId } from '@/lib/actions/faculty'
 
 interface Faculty {
   id: string
-  subject: string
-  faculty_name: string
+  subject?: string
+  faculty_name?: string
 }
 
 interface User {
@@ -166,7 +166,7 @@ export default function StudyMaterialsPage() {
         folder_name: folderForm.folder_name,
         parent_folder_id: currentFolderId || undefined,
         standard: selectedStandard,
-        subject: faculty.subject,
+        subject: faculty.subject ?? '',
       })
 
       if (result.success) {
@@ -222,7 +222,7 @@ export default function StudyMaterialsPage() {
         faculty_id: faculty.id,
         title: formData.title,
         description: formData.description,
-        subject: faculty.subject,
+        subject: faculty.subject ?? '',
         standard: currentFolderStandard,
         file_url: uploadedFile.url,
         file_type: uploadedFile.type,
@@ -311,7 +311,7 @@ export default function StudyMaterialsPage() {
   }
 
   const getFolderOptions = (folderList: FolderWithChildren[], prefix = '') => {
-    const options: JSX.Element[] = []
+    const options: ReactElement[] = []
     for (const folder of folderList) {
       options.push(
         <option key={folder.id} value={folder.id}>

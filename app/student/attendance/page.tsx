@@ -97,9 +97,9 @@ export default function AttendancePage() {
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate()
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay()
 
-  const monthDays = Array.from({ length: firstDayOfMonth }).fill(null).concat(
+  const monthDays: (number | null)[] = Array.from({ length: firstDayOfMonth }).fill(null).concat(
     Array.from({ length: daysInMonth }, (_, i) => i + 1)
-  )
+  ) as (number | null)[]
 
   const getAttendanceStatus = (day: number): 'present' | 'absent' | 'missing' | 'no_record' => {
     if (!day) return 'no_record'

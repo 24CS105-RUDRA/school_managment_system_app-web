@@ -59,7 +59,7 @@ export default function FacultyClassManagement() {
   const [selectedFacultyId, setSelectedFacultyId] = useState('')
   const [subject, setSubject] = useState('')
   const [message, setMessage] = useState('')
-  const [messageType, setMessageType] = useState<'success' | 'error'>('')
+  const [messageType, setMessageType] = useState<'success' | 'error' | ''>('')
 
   useEffect(() => {
     const session = localStorage.getItem('userSession')

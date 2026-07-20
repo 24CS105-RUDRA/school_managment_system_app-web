@@ -18,10 +18,10 @@ interface User {
 interface Homework {
   id: string
   title: string
-  description: string
+  description?: string
   subject: string
   due_date: string
-  assigned_date: string
+  assigned_date?: string
 }
 
 export default function HomeworkPage() {
@@ -178,7 +178,7 @@ export default function HomeworkPage() {
                                 </Badge>
                               )}
                               <Badge variant="outline" className="text-xs bg-background">
-                                Posted: {formatDate(hw.assigned_date)}
+                                Posted: {formatDate(hw.assigned_date ?? '')}
                               </Badge>
                             </div>
                           </CardContent>
