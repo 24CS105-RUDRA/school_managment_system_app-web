@@ -4,7 +4,7 @@ const KEYS = {
   API_URL: '@school/api_url',
 }
 
-const DEFAULT_API_URL = 'http://192.168.137.85:8080'
+const DEFAULT_API_URL = 'https://schoolmanagmentsystemapp-web-production.up.railway.app'
 
 export const settingsStore = {
   async getApiUrl(): Promise<string> {
