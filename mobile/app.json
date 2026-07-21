@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "School Management",
+    "slug": "school-management",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "schoolmanagement",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": false,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.school.management"
+    },
+    "android": {
+      "package": "com.school.management",
+      "adaptiveIcon": {
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-secure-store"
+    ],
+    "experiments": {
+      "typedRoutes": false
+    },
+    "extra": {
+      "eas": {
+        "projectId": "4be013c3-b6cd-447a-8705-4c937aec8a15"
+      }
+    }
+  }
+}
