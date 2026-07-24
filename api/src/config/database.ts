@@ -28,6 +28,7 @@ export async function connectDB(): Promise<Db> {
   db = client.db(env.MONGODB_DB)
   await createIndexes(db)
   await seedAdmin(db)
+  await seedMissingUsers(db)
   return db
 }
 
@@ -97,6 +98,52 @@ async function seedAdmin(database: Db): Promise<void> {
     created_at: now,
     updated_at: now,
   })
+}
+
+async function seedMissingUsers(database: Db): Promise<void> {
+  const now = new Date().toISOString()
+
+  const students = await database.collection('students').find({}).toArray()
+  for (const s of students) {
+    const exists = await database.collection('users').findOne({ id: s.user_id })
+    if (exists) continue
+    const phone = String(s.phone_number || '')
+    const last4 = phone.slice(-4)
+    await database.collection('users').insertOne({
+      id: s.user_id,
+      username: phone,
+      password_hash: await bcrypt.hash(`${last4}@School`, 10),
+      full_name: s.student_name || '',
+      email: '',
+      role: 'student',
+      year_of_study: s.standard || null,
+      division: s.division || null,
+      standard: s.standard || null,
+      created_at: now,
+      updated_at: now,
+    })
+  }
+
+  const faculty = await database.collection('faculty').find({}).toArray()
+  for (const f of faculty) {
+    const exists = await database.collection('users').findOne({ id: f.user_id })
+    if (exists) continue
+    const phone = String(f.phone_number || '')
+    const last4 = phone.slice(-4)
+    await database.collection('users').insertOne({
+      id: f.user_id,
+      username: phone,
+      password_hash: await bcrypt.hash(`${last4}@Faculty`, 10),
+      full_name: f.faculty_name || '',
+      email: '',
+      role: 'faculty',
+      year_of_study: null,
+      division: f.assigned_division || null,
+      standard: f.assigned_standard || null,
+      created_at: now,
+      updated_at: now,
+    })
+  }
 }
 
 export async function withTransaction<T>(cb: (session: ClientSession) => Promise<T>): Promise<T> {
