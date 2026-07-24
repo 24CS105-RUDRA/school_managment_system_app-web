@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { View, ScrollView, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native'
 import { Card, Text, Button, TextInput, useTheme, ActivityIndicator, Chip, Searchbar, Divider } from 'react-native-paper'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -7,9 +7,9 @@ import { api } from '../lib/api'
 import { spacing, radius } from '../lib/theme'
 
 const SUBJECTS = ['Maths','Science','English','Hindi','Sanskrit','Social Studies','Computer','Physics','Chemistry','Biology']
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
 
-function formatDate(d: Date): string {
+function fmt(d: Date): string {
   return d.toISOString().split('T')[0]
 }
 
@@ -17,38 +17,38 @@ function daysInMonth(year: number, month: number): number {
   return new Date(year, month + 1, 0).getDate()
 }
 
+function getFirstDayOfMonth(year: number, month: number): number {
+  return new Date(year, month, 1).getDay()
+}
+
 export default function FacultyAttendanceScreen({ navigation }: any) {
   const [user, setUser] = useState<any>(null)
-  const [facultyInfo, setFacultyInfo] = useState<any>(null)
   const [standard, setStandard] = useState('')
   const [division, setDivision] = useState('')
   const [subject, setSubject] = useState('General')
-  const [selectedDate, setSelectedDate] = useState(formatDate(new Date()))
+  const [selectedDate, setSelectedDate] = useState(fmt(new Date()))
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date().getMonth())
+  const [calendarYear, setCalendarYear] = useState(() => new Date().getFullYear())
   const [students, setStudents] = useState<any[]>([])
   const [records, setRecords] = useState<Record<string, string>>({})
   const [existingAttendance, setExistingAttendance] = useState<any>(null)
+  const [allMonthAttendance, setAllMonthAttendance] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [mode, setMode] = useState<'loading' | 'mark' | 'view' | 'no-class'>('loading')
   const [searchQuery, setSearchQuery] = useState('')
+  const [dateSearchQuery, setDateSearchQuery] = useState('')
+  const [showSubjectPicker, setShowSubjectPicker] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [monthlyStats, setMonthlyStats] = useState<any>(null)
   const [showMonthly, setShowMonthly] = useState(false)
   const theme = useTheme()
   const insets = useSafeAreaInsets()
 
-  const todayStr = formatDate(new Date())
+  const todayStr = fmt(new Date())
 
-  const yesterday = new Date()
-  yesterday.setDate(yesterday.getDate() - 1)
-  const yesterdayStr = formatDate(yesterday)
-
-  const quickDates = [
-    { label: 'Today', value: todayStr },
-    { label: 'Yesterday', value: yesterdayStr },
-  ]
-
+  // Load faculty info
   useEffect(() => {
     ;(async () => {
       const u = await tokenStore.getUser()
@@ -57,26 +57,25 @@ export default function FacultyAttendanceScreen({ navigation }: any) {
         const res = await api.get<any[]>('/api/faculty')
         if (res.success) {
           const match = (res.data || []).find((f: any) => f.user_id === u.id)
-          if (match) {
-            setFacultyInfo(match)
-            if (match.assigned_standard) {
-              setStandard(match.assigned_standard)
-              setDivision(match.assigned_division || '')
-            }
+          if (match && match.assigned_standard) {
+            setStandard(match.assigned_standard)
+            setDivision(match.assigned_division || '')
           }
         }
       }
     })()
   }, [])
 
-  const loadForDate = useCallback(async (date: string, std?: string, div?: string) => {
+  // Load students + all attendance for the month
+  const loadMonthData = useCallback(async (y: number, m: number, std?: string, div?: string) => {
     const s = std || standard
     const d = div || division
     if (!s) { setMode('no-class'); setLoading(false); return }
 
     setLoading(true)
     setError('')
-    setExistingAttendance(null)
+    setShowMonthly(false)
+    setMonthlyStats(null)
 
     // Fetch students
     const params = new URLSearchParams({ standard: s })
@@ -87,6 +86,52 @@ export default function FacultyAttendanceScreen({ navigation }: any) {
     const studentList = studentsRes.data || []
     setStudents(studentList)
 
+    // Fetch all attendance for this month
+    const startDate = fmt(new Date(y, m, 1))
+    const endDate = fmt(new Date(y, m, daysInMonth(y, m)))
+    const attRes = await api.get<any[]>('/api/attendance')
+    if (attRes.success && attRes.data) {
+      const monthDocs = attRes.data.filter((a: any) =>
+        a.attendance_date >= startDate && a.attendance_date <= endDate &&
+        a.standard === s && (!d || a.division === d)
+      )
+      setAllMonthAttendance(monthDocs)
+
+      // Build monthly stats
+      const stats: Record<string, { present: number; absent: number; late: number; total: number }> = {}
+      studentList.forEach((st: any) => {
+        stats[st.id] = { present: 0, absent: 0, late: 0, total: 0 }
+      })
+      monthDocs.forEach((doc: any) => {
+        ;(doc.attendance_records || []).forEach((r: any) => {
+          if (stats[r.student_id]) {
+            stats[r.student_id].total++
+            if (r.status === 'present') stats[r.student_id].present++
+            else if (r.status === 'absent') stats[r.student_id].absent++
+            else if (r.status === 'late') stats[r.student_id].late++
+          }
+        })
+      })
+      setMonthlyStats({ docs: monthDocs.length, stats, month: m, year: y })
+    }
+
+    setLoading(false)
+  }, [standard, division])
+
+  useEffect(() => {
+    if (standard) {
+      loadMonthData(calendarYear, calendarMonth)
+    }
+  }, [calendarYear, calendarMonth, standard, division])
+
+  // Load date detail (for mark/view)
+  const loadForDate = useCallback(async (date: string) => {
+    const s = standard
+    const d = division
+    if (!s) return
+
+    setError('')
+
     // Check existing attendance for this date
     const classParams = new URLSearchParams({ date, standard: s })
     if (d) classParams.append('division', d)
@@ -94,6 +139,7 @@ export default function FacultyAttendanceScreen({ navigation }: any) {
     if (attRes.success && attRes.data && attRes.data.length > 0) {
       const attDoc = attRes.data[0]
       setExistingAttendance(attDoc)
+      setSubject(attDoc.subject || 'General')
       const recMap: Record<string, string> = {}
       ;(attDoc.attendance_records || []).forEach((r: any) => {
         recMap[r.student_id] = r.status
@@ -101,69 +147,67 @@ export default function FacultyAttendanceScreen({ navigation }: any) {
       setRecords(recMap)
       setMode('view')
     } else {
-      // No existing attendance → mark mode
       const initial: Record<string, string> = {}
-      studentList.forEach((s: any) => { initial[s.id] = 'present' })
+      students.forEach((s: any) => { initial[s.id] = 'present' })
       setRecords(initial)
       setExistingAttendance(null)
       setMode('mark')
     }
+  }, [standard, division, students])
 
-    setLoading(false)
-  }, [standard, division])
-
+  // When selectedDate changes, load its detail
   useEffect(() => {
-    if (facultyInfo || (standard && !facultyInfo)) {
-      loadForDate(selectedDate)
-    } else if (standard) {
+    if (standard && students.length > 0 && selectedDate) {
       loadForDate(selectedDate)
     }
-  }, [selectedDate, standard, division, facultyInfo])
+  }, [selectedDate, students.length > 0])
 
-  const loadMonthlyStats = async () => {
-    setShowMonthly(true)
-    const s = standard
-    const d = division
-    if (!s) return
-
-    const now = new Date()
-    const year = now.getFullYear()
-    const month = now.getMonth()
-    const totalDays = daysInMonth(year, month)
-
-    const startDate = formatDate(new Date(year, month, 1))
-    const endDate = formatDate(new Date(year, month, totalDays))
-
-    const params = new URLSearchParams({ standard: s, start: startDate, end: endDate })
-    if (d) params.append('division', d)
-
-    // Fetch ALL attendance docs for this month
-    const attRes = await api.get<any[]>('/api/attendance')
-    if (!attRes.success || !attRes.data) return
-
-    const monthDocs = attRes.data.filter((a: any) => {
-      const ad = a.attendance_date
-      return ad >= startDate && ad <= endDate && a.standard === s && (!d || a.division === d)
-    })
-
-    const stats: Record<string, { present: number; absent: number; late: number; total: number }> = {}
-    students.forEach((st: any) => {
-      stats[st.id] = { present: 0, absent: 0, late: 0, total: 0 }
-    })
-
-    monthDocs.forEach((doc: any) => {
-      ;(doc.attendance_records || []).forEach((r: any) => {
-        if (stats[r.student_id]) {
-          stats[r.student_id].total++
-          if (r.status === 'present') stats[r.student_id].present++
-          else if (r.status === 'absent') stats[r.student_id].absent++
-          else if (r.status === 'late') stats[r.student_id].late++
-        }
-      })
-    })
-
-    setMonthlyStats({ docs: monthDocs.length, stats, totalDays, month: MONTHS[month], year })
+  const prevMonth = () => {
+    if (calendarMonth === 0) { setCalendarMonth(11); setCalendarYear(calendarYear - 1) }
+    else setCalendarMonth(calendarMonth - 1)
   }
+  const nextMonth = () => {
+    if (calendarMonth === 11) { setCalendarMonth(0); setCalendarYear(calendarYear + 1) }
+    else setCalendarMonth(calendarMonth + 1)
+  }
+
+  const datesWithAttendance = useMemo(() => {
+    const set = new Set<string>()
+    allMonthAttendance.forEach((a: any) => set.add(a.attendance_date))
+    return set
+  }, [allMonthAttendance])
+
+  const calendarDays = useMemo(() => {
+    const total = daysInMonth(calendarYear, calendarMonth)
+    const startDay = getFirstDayOfMonth(calendarYear, calendarMonth)
+    const days: (number | null)[] = []
+    for (let i = 0; i < startDay; i++) days.push(null)
+    for (let d = 1; d <= total; d++) days.push(d)
+    return days
+  }, [calendarYear, calendarMonth])
+
+  // Build date list for the month
+  const monthDateList = useMemo(() => {
+    const total = daysInMonth(calendarYear, calendarMonth)
+    const list: { date: string; day: number; hasAttendance: boolean; doc: any }[] = []
+    for (let d = 1; d <= total; d++) {
+      const ds = fmt(new Date(calendarYear, calendarMonth, d))
+      if (ds > todayStr) continue  // skip future dates
+      const doc = allMonthAttendance.find((a: any) => a.attendance_date === ds)
+      list.push({ date: ds, day: d, hasAttendance: !!doc, doc: doc || null })
+    }
+    return list
+  }, [calendarYear, calendarMonth, allMonthAttendance, todayStr])
+
+  const filteredDateList = useMemo(() => {
+    if (!dateSearchQuery.trim()) return monthDateList
+    const q = dateSearchQuery.toLowerCase()
+    return monthDateList.filter((item) => {
+      const d = new Date(item.date)
+      const dateStr = d.toLocaleDateString('en-IN')
+      return item.date.includes(q) || dateStr.includes(q) || String(item.day).includes(q)
+    })
+  }, [monthDateList, dateSearchQuery])
 
   const toggleStatus = (studentId: string) => {
     if (mode === 'view') return
@@ -174,9 +218,9 @@ export default function FacultyAttendanceScreen({ navigation }: any) {
     })
   }
 
-  const markAllPresent = () => {
+  const setAll = (status: string) => {
     const all: Record<string, string> = {}
-    students.forEach((s: any) => { all[s.id] = 'present' })
+    students.forEach((s: any) => { all[s.id] = status })
     setRecords(all)
   }
 
@@ -184,8 +228,7 @@ export default function FacultyAttendanceScreen({ navigation }: any) {
     setSubmitting(true)
     setError('')
     const attendance_records = Object.entries(records).map(([student_id, status]) => ({
-      student_id,
-      status: status === 'present' ? 'present' : status === 'absent' ? 'absent' : 'late',
+      student_id, status,
     }))
     const res = await api.post('/api/attendance', {
       standard,
@@ -196,14 +239,34 @@ export default function FacultyAttendanceScreen({ navigation }: any) {
     })
     setSubmitting(false)
     if (!res.success) { setError(res.error || 'Failed to submit'); return }
-    // Reload to show view mode
+    loadMonthData(calendarYear, calendarMonth)
     loadForDate(selectedDate)
+  }
+
+  const selectDate = (d: number) => {
+    if (!d) return
+    const ds = fmt(new Date(calendarYear, calendarMonth, d))
+    if (ds > todayStr) return
+    setSelectedDate(ds)
   }
 
   const onRefresh = useCallback(() => {
     setRefreshing(true)
-    loadForDate(selectedDate).then(() => setRefreshing(false))
-  }, [selectedDate, loadForDate])
+    loadMonthData(calendarYear, calendarMonth).then(() => {
+      if (selectedDate) loadForDate(selectedDate)
+      setRefreshing(false)
+    })
+  }, [calendarYear, calendarMonth, selectedDate, loadMonthData, loadForDate])
+
+  // Initial load
+  useEffect(() => {
+    if (standard) onRefresh()
+  }, [standard])
+
+  const selectedDayNum = selectedDate ? new Date(selectedDate).getDate() : 0
+  const selectedDoc = allMonthAttendance.find((a: any) => a.attendance_date === selectedDate)
+  const absentCount = Object.values(records).filter((s) => s !== 'present').length
+  const totalStudents = students.length
 
   if (mode === 'no-class') {
     return (
@@ -214,9 +277,6 @@ export default function FacultyAttendanceScreen({ navigation }: any) {
       </View>
     )
   }
-
-  const absentCount = Object.values(records).filter((s) => s !== 'present').length
-  const totalStudents = students.length
 
   return (
     <View style={styles.container}>
@@ -234,32 +294,124 @@ export default function FacultyAttendanceScreen({ navigation }: any) {
           <Chip style={{ backgroundColor: theme.colors.primaryContainer }}>
             Std {standard}{division ? ` - ${division}` : ''}
           </Chip>
-          <Chip style={{ backgroundColor: '#E8F5E9' }}>{subject}</Chip>
+          <Chip
+            style={{ backgroundColor: '#E8F5E9' }}
+            onPress={() => setShowSubjectPicker(true)}
+          >
+            {subject} ▼
+          </Chip>
+          <Text variant="bodySmall" style={{ color: '#888', alignSelf: 'center', marginLeft: 'auto' }}>
+            {allMonthAttendance.length} days marked
+          </Text>
         </View>
 
-        {/* Date selector */}
+        {/* Subject Picker Modal (inline) */}
+        {showSubjectPicker && (
+          <Card style={{ marginHorizontal: spacing.md, marginBottom: spacing.sm, borderRadius: radius.md }} mode="elevated">
+            <Card.Content>
+              <Text variant="bodySmall" style={styles.label}>Select Subject</Text>
+              <View style={styles.optionsRow}>
+                {SUBJECTS.map((s) => (
+                  <TouchableOpacity
+                    key={s} onPress={() => { setSubject(s); setShowSubjectPicker(false) }}
+                    style={[styles.optChip, subject === s && { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }]}
+                  >
+                    <Text style={[styles.optChipText, subject === s && { color: '#fff' }]}>{s}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Button compact onPress={() => setShowSubjectPicker(false)}>Close</Button>
+            </Card.Content>
+          </Card>
+        )}
+
+        {/* Calendar Navigation */}
+        <View style={styles.calNav}>
+          <TouchableOpacity onPress={prevMonth} style={styles.calArrow}>
+            <Text style={{ fontSize: 20, fontWeight: '700', color: theme.colors.primary }}>{'<'}</Text>
+          </TouchableOpacity>
+          <Text style={{ fontSize: 16, fontWeight: '700' }}>
+            {['January','February','March','April','May','June','July','August','September','October','November','December'][calendarMonth]} {calendarYear}
+          </Text>
+          <TouchableOpacity onPress={nextMonth} style={styles.calArrow}>
+            <Text style={{ fontSize: 20, fontWeight: '700', color: theme.colors.primary }}>{'>'}</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Calendar Grid */}
+        <Card style={styles.calCard} mode="elevated">
+          <Card.Content style={{ padding: spacing.sm }}>
+            <View style={styles.calWeekRow}>
+              {DAY_NAMES.map((dn) => (
+                <View key={dn} style={styles.calDayHeader}><Text style={styles.calDayHeaderText}>{dn}</Text></View>
+              ))}
+            </View>
+            <View style={styles.calGrid}>
+              {calendarDays.map((d, i) => {
+                if (d === null) return <View key={`e${i}`} style={styles.calDayCell} />
+                const ds = fmt(new Date(calendarYear, calendarMonth, d))
+                const isToday = ds === todayStr
+                const hasAtt = datesWithAttendance.has(ds)
+                const isSelected = ds === selectedDate
+                const isFuture = ds > todayStr
+                return (
+                  <TouchableOpacity
+                    key={d}
+                    onPress={() => selectDate(d)}
+                    disabled={isFuture}
+                    style={[
+                      styles.calDayCell,
+                      isSelected && styles.calDaySelected,
+                      isToday && !isSelected && { borderWidth: 1, borderColor: theme.colors.primary },
+                    ]}
+                  >
+                    <View style={[
+                      styles.calDayInner,
+                      hasAtt && styles.calDayHasAtt,
+                      isToday && !hasAtt && !isSelected && { backgroundColor: '#E3F2FD' },
+                    ]}>
+                      <Text style={[
+                        styles.calDayText,
+                        isFuture && { color: '#ddd' },
+                        isSelected && { color: '#fff' },
+                        hasAtt && !isSelected && { color: '#fff' },
+                      ]}>{d}</Text>
+                    </View>
+                  </TouchableOpacity>
+                )
+              })}
+            </View>
+          </Card.Content>
+        </Card>
+
+        {/* Selected Date Detail */}
         <View style={styles.section}>
-          <Text variant="titleSmall" style={styles.sectionTitle}>Select Date</Text>
-          <View style={styles.quickDatesRow}>
-            {quickDates.map((qd) => (
-              <TouchableOpacity
-                key={qd.value}
-                onPress={() => setSelectedDate(qd.value)}
-                style={[styles.quickDateChip, selectedDate === qd.value && { backgroundColor: theme.colors.primary }]}
-              >
-                <Text style={[styles.quickDateText, selectedDate === qd.value && { color: '#fff' }]}>{qd.label}</Text>
-              </TouchableOpacity>
-            ))}
-            <TextInput
-              mode="outlined"
-              value={selectedDate}
-              onChangeText={(v) => { if (/^\d{4}-\d{2}-\d{2}$/.test(v) || v.length <= 10) setSelectedDate(v) }}
-              placeholder="YYYY-MM-DD"
-              style={styles.dateInput}
-              outlineStyle={{ borderRadius: radius.md }}
-              dense
-            />
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text variant="titleSmall" style={styles.sectionTitle}>
+              {selectedDate ? new Date(selectedDate).toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : 'Select a date'}
+            </Text>
+            {mode === 'view' && existingAttendance && (
+              <Button mode="outlined" compact icon="pencil" onPress={() => setMode('mark')}>
+                Edit
+              </Button>
+            )}
           </View>
+
+          {selectedDoc ? (
+            <View style={{ flexDirection: 'row', gap: spacing.xs, marginTop: spacing.xs }}>
+              <Chip compact style={{ backgroundColor: '#C8E6C9' }} textStyle={{ fontSize: 11 }}>
+                Present: {Object.values(records).filter((s) => s === 'present').length}
+              </Chip>
+              <Chip compact style={{ backgroundColor: '#FFCDD2' }} textStyle={{ fontSize: 11 }}>
+                Absent: {Object.values(records).filter((s) => s === 'absent').length}
+              </Chip>
+              <Chip compact style={{ backgroundColor: '#FFE0B2' }} textStyle={{ fontSize: 11 }}>
+                Late: {Object.values(records).filter((s) => s === 'late').length}
+              </Chip>
+            </View>
+          ) : selectedDate && selectedDate <= todayStr ? (
+            <Text variant="bodySmall" style={{ color: '#888', marginTop: 4 }}>No attendance recorded for this date</Text>
+          ) : null}
         </View>
 
         {error ? (
@@ -269,22 +421,18 @@ export default function FacultyAttendanceScreen({ navigation }: any) {
         ) : null}
 
         {loading ? (
-          <View style={[styles.center, { paddingVertical: spacing.xxl }]}>
+          <View style={[styles.center, { paddingVertical: spacing.xl }]}>
             <ActivityIndicator size="large" color={theme.colors.primary} />
           </View>
-        ) : mode === 'mark' ? (
+        ) : null}
+
+        {/* Mark / View Mode for selected date */}
+        {!loading && mode === 'mark' && selectedDate ? (
           <>
-            {/* Mark mode */}
             <View style={styles.section}>
-              <View style={styles.summaryRow}>
-                <Text variant="titleSmall" style={styles.sectionTitle}>Mark Attendance</Text>
-                <View style={styles.summaryChips}>
-                  <Chip compact style={{ backgroundColor: '#C8E6C9' }} textStyle={{ fontSize: 11 }}>Present: {totalStudents - absentCount}</Chip>
-                  <Chip compact style={{ backgroundColor: '#FFCDD2' }} textStyle={{ fontSize: 11 }}>Absent: {absentCount}</Chip>
-                </View>
-              </View>
-              <View style={styles.actionsRow}>
-                <Button mode="text" compact icon="check-all" onPress={markAllPresent}>All Present</Button>
+              <View style={{ flexDirection: 'row', gap: spacing.xs }}>
+                <Button mode="text" compact icon="check-all" onPress={() => setAll('present')}>All Present</Button>
+                <Button mode="text" compact icon="close" onPress={() => setAll('absent')}>All Absent</Button>
               </View>
             </View>
 
@@ -300,6 +448,9 @@ export default function FacultyAttendanceScreen({ navigation }: any) {
                         <Text variant="bodySmall" style={{ color: '#888' }}>Roll: {s.roll_number || '-'}</Text>
                       </View>
                       <View style={[styles.statusDot, { backgroundColor: isAbsent ? '#F44336' : '#4CAF50' }]} />
+                      <Text variant="bodySmall" style={{ marginLeft: 4, fontWeight: '600', color: isAbsent ? '#C62828' : '#2E7D32', width: 50, textAlign: 'right' }}>
+                        {status.toUpperCase()}
+                      </Text>
                     </Card.Content>
                   </Card>
                 </TouchableOpacity>
@@ -314,37 +465,16 @@ export default function FacultyAttendanceScreen({ navigation }: any) {
               style={styles.submitBtn}
               contentStyle={{ paddingVertical: 8 }}
             >
-              {submitting ? 'Saving...' : `Send Attendance (${totalStudents} students)`}
+              {submitting ? 'Saving...' : `Save Attendance (${totalStudents} students)`}
             </Button>
           </>
-        ) : mode === 'view' && existingAttendance ? (
-          <>
-            {/* View mode */}
-            <View style={styles.section}>
-              <View style={styles.summaryRow}>
-                <Text variant="titleSmall" style={styles.sectionTitle}>Attendance Record</Text>
-                <Chip compact style={{ backgroundColor: '#E3F2FD' }} textStyle={{ fontSize: 11 }}>
-                  {existingAttendance.subject || 'General'}
-                </Chip>
-              </View>
-              <View style={styles.summaryChips}>
-                <Chip compact style={{ backgroundColor: '#C8E6C9' }} textStyle={{ fontSize: 11 }}>
-                  Present: {Object.values(records).filter((s) => s === 'present').length}
-                </Chip>
-                <Chip compact style={{ backgroundColor: '#FFCDD2' }} textStyle={{ fontSize: 11 }}>
-                  Absent: {Object.values(records).filter((s) => s === 'absent').length}
-                </Chip>
-                <Chip compact style={{ backgroundColor: '#FFE0B2' }} textStyle={{ fontSize: 11 }}>
-                  Late: {Object.values(records).filter((s) => s === 'late').length}
-                </Chip>
-              </View>
-            </View>
-
+        ) : !loading && mode === 'view' && selectedDate && students.length > 0 ? (
+          <View style={styles.section}>
             {students.map((s: any) => {
               const status = records[s.id] || 'absent'
               const statusColor = status === 'present' ? '#C8E6C9' : status === 'absent' ? '#FFCDD2' : '#FFE0B2'
               return (
-                <Card key={s.id} style={styles.studentCard} mode="elevated">
+                <Card key={s.id} style={{ marginBottom: spacing.xs, borderRadius: radius.md }} mode="elevated">
                   <Card.Content style={styles.studentRow}>
                     <View style={styles.studentInfo}>
                       <Text variant="titleSmall" style={{ fontWeight: '600' }}>{s.student_name || s.full_name || s.id.slice(0, 8)}</Text>
@@ -357,10 +487,65 @@ export default function FacultyAttendanceScreen({ navigation }: any) {
                 </Card>
               )
             })}
-          </>
+          </View>
         ) : null}
 
-        {/* Search Student */}
+        {/* Date Search & List */}
+        <View style={styles.section}>
+          <Text variant="titleSmall" style={styles.sectionTitle}>Date-wise Attendance</Text>
+          <Searchbar
+            placeholder="Search by date (e.g. 2026-07 or 24)..."
+            onChangeText={setDateSearchQuery}
+            value={dateSearchQuery}
+            style={styles.searchBar}
+            inputStyle={{ fontSize: 13 }}
+          />
+        </View>
+
+        {filteredDateList.length === 0 ? (
+          <Text style={{ color: '#888', textAlign: 'center', marginVertical: spacing.md }}>
+            {dateSearchQuery ? 'No matching dates' : 'No dates in this month'}
+          </Text>
+        ) : (
+          filteredDateList.map((item) => {
+            const d = new Date(item.date)
+            const dayName = d.toLocaleDateString('en-IN', { weekday: 'short' })
+            return (
+              <TouchableOpacity
+                key={item.date}
+                onPress={() => setSelectedDate(item.date)}
+                activeOpacity={0.7}
+              >
+                <Card style={[styles.dateRow, selectedDate === item.date && { borderLeftWidth: 3, borderLeftColor: theme.colors.primary }]} mode="elevated">
+                  <Card.Content style={styles.dateRowContent}>
+                    <View style={styles.dateRowLeft}>
+                      <Text style={styles.dateDayNum}>{item.day}</Text>
+                      <View>
+                        <Text variant="bodyMedium" style={{ fontWeight: '600' }}>{dayName}</Text>
+                        <Text variant="bodySmall" style={{ color: '#888' }}>{item.date}</Text>
+                      </View>
+                    </View>
+                    {item.hasAttendance ? (
+                      <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}>
+                        <Chip compact style={{ backgroundColor: '#C8E6C9' }} textStyle={{ fontSize: 10, fontWeight: '600' }}>
+                          {item.doc?.attendance_records?.filter((r: any) => r.status === 'present').length || 0} P
+                        </Chip>
+                        <Chip compact style={{ backgroundColor: '#FFCDD2' }} textStyle={{ fontSize: 10, fontWeight: '600' }}>
+                          {item.doc?.attendance_records?.filter((r: any) => r.status !== 'present').length || 0} A
+                        </Chip>
+                        <Text variant="bodySmall" style={{ color: '#888' }}>{item.doc?.subject || ''}</Text>
+                      </View>
+                    ) : (
+                      <Chip compact style={{ backgroundColor: '#F5F5F5' }} textStyle={{ fontSize: 10, color: '#888' }}>Not marked</Chip>
+                    )}
+                  </Card.Content>
+                </Card>
+              </TouchableOpacity>
+            )
+          })
+        )}
+
+        {/* Student Search */}
         <View style={styles.section}>
           <Text variant="titleSmall" style={styles.sectionTitle}>Search Student</Text>
           <Searchbar
@@ -371,30 +556,29 @@ export default function FacultyAttendanceScreen({ navigation }: any) {
             inputStyle={{ fontSize: 14 }}
           />
           {searchQuery.trim() ? (
-            <StudentSearchResults
-              query={searchQuery}
-              students={students}
-              records={records}
-              standard={standard}
-              division={division}
-              navigation={navigation}
-            />
+            <StudentSearchResults query={searchQuery} students={students} records={records} navigation={navigation} />
           ) : null}
         </View>
 
         {/* Monthly Stats */}
         <View style={styles.section}>
-          <View style={styles.summaryRow}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <Text variant="titleSmall" style={styles.sectionTitle}>Monthly Report</Text>
-            {!showMonthly ? (
-              <Button mode="text" compact onPress={loadMonthlyStats}>Show</Button>
+            {!showMonthly && monthlyStats ? (
+              <Button mode="text" compact onPress={() => setShowMonthly(true)}>Show</Button>
+            ) : null}
+            {showMonthly ? (
+              <Button mode="text" compact onPress={() => setShowMonthly(false)}>Hide</Button>
             ) : null}
           </View>
           {showMonthly && monthlyStats ? (
             <MonthlyStatsView stats={monthlyStats} students={students} />
-          ) : showMonthly && !monthlyStats ? (
-            <ActivityIndicator size="small" color={theme.colors.primary} />
           ) : null}
+          {!showMonthly && (
+            <Text variant="bodySmall" style={{ color: '#888' }}>
+              {monthlyStats?.docs || 0} days recorded this month
+            </Text>
+          )}
         </View>
 
       </ScrollView>
@@ -402,69 +586,61 @@ export default function FacultyAttendanceScreen({ navigation }: any) {
   )
 }
 
-function StudentSearchResults({
-  query, students, records, standard, division, navigation,
-}: {
-  query: string; students: any[]; records: Record<string, string>; standard: string; division: string; navigation: any
-}) {
+const st = StyleSheet.create({
+  studentRow: { flexDirection: 'row', alignItems: 'center' },
+  studentInfo: { flex: 1 },
+})
+
+function StudentSearchResults({ query, students, records, navigation }: any) {
   const q = query.toLowerCase()
   const filtered = students.filter((s: any) =>
     (s.student_name || s.full_name || '').toLowerCase().includes(q)
   )
-
   if (filtered.length === 0) {
     return <Text style={{ color: '#888', textAlign: 'center', marginTop: spacing.sm }}>No student found</Text>
   }
-
   return (
     <View style={{ marginTop: spacing.sm }}>
-      {filtered.map((s: any) => {
-        const status = records[s.id] || 'absent'
-        return (
-          <TouchableOpacity
-            key={s.id}
-            onPress={() => navigation.navigate('StudentAttendanceDetail', { studentId: s.id, studentName: s.student_name || s.full_name })}
-            activeOpacity={0.7}
-          >
-            <Card style={{ marginBottom: spacing.xs, borderRadius: radius.md }} mode="elevated">
-              <Card.Content style={styles.studentRow}>
-                <View style={styles.studentInfo}>
-                  <Text variant="bodyMedium" style={{ fontWeight: '600' }}>{s.student_name || s.full_name}</Text>
-                  <Text variant="bodySmall" style={{ color: '#888' }}>Roll: {s.roll_number || '-'}</Text>
-                </View>
-                {records[s.id] ? (
-                  <Chip
-                    mode="flat" compact
-                    style={{ backgroundColor: status === 'present' ? '#C8E6C9' : status === 'absent' ? '#FFCDD2' : '#FFE0B2' }}
-                    textStyle={{ fontSize: 10, fontWeight: '600' }}
-                  >
-                    {status.toUpperCase()}
-                  </Chip>
-                ) : null}
-              </Card.Content>
-            </Card>
-          </TouchableOpacity>
-        )
-      })}
+      {filtered.map((s: any) => (
+        <TouchableOpacity
+          key={s.id}
+          onPress={() => navigation.navigate('StudentAttendanceDetail', { studentId: s.id, studentName: s.student_name || s.full_name })}
+          activeOpacity={0.7}
+        >
+          <Card style={{ marginBottom: spacing.xs, borderRadius: radius.md }} mode="elevated">
+            <Card.Content style={st.studentRow}>
+              <View style={st.studentInfo}>
+                <Text variant="bodyMedium" style={{ fontWeight: '600' }}>{s.student_name || s.full_name}</Text>
+                <Text variant="bodySmall" style={{ color: '#888' }}>Roll: {s.roll_number || '-'}</Text>
+              </View>
+              {records[s.id] ? (
+                <Chip mode="flat" compact
+                  style={{ backgroundColor: records[s.id] === 'present' ? '#C8E6C9' : records[s.id] === 'absent' ? '#FFCDD2' : '#FFE0B2' }}
+                  textStyle={{ fontSize: 10, fontWeight: '600' }}
+                >{records[s.id].toUpperCase()}</Chip>
+              ) : null}
+            </Card.Content>
+          </Card>
+        </TouchableOpacity>
+      ))}
     </View>
   )
 }
 
 function MonthlyStatsView({ stats, students }: { stats: any; students: any[] }) {
+  const monthName = ['January','February','March','April','May','June','July','August','September','October','November','December'][stats.month]
   return (
     <Card style={{ borderRadius: radius.md, marginTop: spacing.sm }} mode="elevated">
       <Card.Content>
         <Text variant="titleSmall" style={{ fontWeight: '700', marginBottom: spacing.sm }}>
-          {stats.month} {stats.year} — {stats.docs} days recorded
+          {monthName} {stats.year} — {stats.docs} days
         </Text>
         <Text variant="bodySmall" style={{ color: '#888', marginBottom: spacing.sm }}>
           Class average: {students.length > 0
-            ? Math.round(
-                students.reduce((sum: number, s: any) => {
-                  const st = stats.stats[s.id]
-                  return sum + (st && st.total > 0 ? (st.present / st.total) * 100 : 0)
-                }, 0) / students.length
-              )
+            ? Math.round(students.reduce((sum: number, s: any) => {
+                const st = stats.stats[s.id]
+                return sum + (st && st.total > 0 ? (st.present / st.total) * 100 : 0)
+              }, 0) / students.length)
             : 0}%
         </Text>
         <Divider />
@@ -488,9 +664,7 @@ function MonthlyStatsView({ stats, students }: { stats: any; students: any[] }) 
           )
         })}
         {students.length > 20 ? (
-          <Text variant="bodySmall" style={{ color: '#888', textAlign: 'center', marginTop: spacing.sm }}>
-            Showing first 20 of {students.length} students
-          </Text>
+          <Text variant="bodySmall" style={{ color: '#888', textAlign: 'center', marginTop: spacing.sm }}>Showing first 20</Text>
         ) : null}
       </Card.Content>
     </Card>
@@ -505,20 +679,39 @@ const styles = StyleSheet.create({
 
   classInfoRow: { flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, flexWrap: 'wrap' },
 
+  // Calendar
+  calNav: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+  },
+  calArrow: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  calCard: { marginHorizontal: spacing.md, borderRadius: radius.md },
+  calWeekRow: { flexDirection: 'row' },
+  calDayHeader: { flex: 1, alignItems: 'center', paddingVertical: 4 },
+  calDayHeaderText: { fontSize: 11, fontWeight: '600', color: '#888' },
+  calGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  calDayCell: { width: '14.28%', aspectRatio: 1, padding: 1 },
+  calDayInner: {
+    flex: 1, borderRadius: 8, alignItems: 'center', justifyContent: 'center',
+  },
+  calDayHasAtt: { backgroundColor: '#4CAF50' },
+  calDaySelected: { backgroundColor: '#0F4C81', borderRadius: 8 },
+  calDayText: { fontSize: 13, fontWeight: '600', color: '#333' },
+
+  // Date list
+  dateRow: { marginHorizontal: spacing.md, marginBottom: spacing.xs, borderRadius: radius.md },
+  dateRowContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  dateRowLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  dateDayNum: { fontSize: 18, fontWeight: '700', color: '#333', width: 28 },
+
+  // Options
+  label: { color: '#666', marginBottom: spacing.xs, textTransform: 'uppercase', letterSpacing: 0.5, fontSize: 12 },
+  optionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+  optChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: radius.pill, borderWidth: 1.5, borderColor: '#ddd', backgroundColor: '#fff' },
+  optChipText: { fontSize: 13, fontWeight: '600', color: '#333' },
+
   section: { paddingHorizontal: spacing.md, paddingTop: spacing.md },
   sectionTitle: { fontWeight: '700', marginBottom: spacing.sm, color: '#333' },
-
-  quickDatesRow: { flexDirection: 'row', gap: spacing.xs, alignItems: 'center', flexWrap: 'wrap' },
-  quickDateChip: {
-    paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.pill,
-    borderWidth: 1.5, borderColor: '#ddd', backgroundColor: '#fff',
-  },
-  quickDateText: { fontSize: 13, fontWeight: '600', color: '#333' },
-  dateInput: { backgroundColor: '#fff', fontSize: 13, height: 38, width: 130 },
-
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  summaryChips: { flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap', marginTop: spacing.xs },
-  actionsRow: { marginTop: spacing.xs },
 
   studentCard: { marginHorizontal: spacing.md, marginBottom: spacing.xs, borderRadius: radius.md },
   absentCard: { backgroundColor: '#FFF5F5' },
