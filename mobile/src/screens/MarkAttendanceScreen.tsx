@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { View, ScrollView, StyleSheet, TouchableOpacity } from 'react-native'
 import { Card, Text, Button, TextInput, useTheme, ActivityIndicator, Chip } from 'react-native-paper'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { tokenStore } from '../lib/storage'
 import { api } from '../lib/api'
 import { spacing, radius } from '../lib/theme'
 
@@ -12,6 +13,8 @@ const SUBJECTS = ['Maths','Science','English','Hindi','Sanskrit','Social Studies
 type Status = 'present' | 'absent' | 'late'
 
 export default function MarkAttendanceScreen({ navigation }: any) {
+  const [user, setUser] = useState<any>(null)
+  const [loadingFaculty, setLoadingFaculty] = useState(true)
   const [standard, setStandard] = useState('')
   const [division, setDivision] = useState('')
   const [subject, setSubject] = useState('')
@@ -25,11 +28,32 @@ export default function MarkAttendanceScreen({ navigation }: any) {
   const theme = useTheme()
   const insets = useSafeAreaInsets()
 
+  useEffect(() => {
+    ;(async () => {
+      const u = await tokenStore.getUser()
+      setUser(u)
+      if (u && u.role === 'faculty') {
+        const res = await api.get<any[]>('/api/faculty')
+        if (res.success) {
+          const facultyList = res.data || []
+          const match = facultyList.find((f: any) => f.user_id === u.id)
+          if (match && match.assigned_standard) {
+            setStandard(match.assigned_standard)
+            setDivision(match.assigned_division || '')
+            setLoadingFaculty(false)
+            return
+          }
+        }
+      }
+      setLoadingFaculty(false)
+    })()
+  }, [])
+
   const loadStudents = async () => {
     if (!standard) { setError('Select a standard'); return }
     setLoading(true)
     setError('')
-    const params = new URLSearchParams({ standard: standard })
+    const params = new URLSearchParams({ standard })
     if (division) params.append('division', division)
     const res = await api.get<any[]>(`/api/students?${params.toString()}`)
     setLoading(false)
@@ -69,6 +93,16 @@ export default function MarkAttendanceScreen({ navigation }: any) {
     navigation.goBack()
   }
 
+  if (loadingFaculty) {
+    return (
+      <View style={[styles.container, styles.center]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    )
+  }
+
+  const isFaculty = user?.role === 'faculty'
+
   if (step === 'config') {
     return (
       <View style={styles.container}>
@@ -84,34 +118,48 @@ export default function MarkAttendanceScreen({ navigation }: any) {
           ) : null}
 
           <Text variant="bodySmall" style={styles.label}>Standard *</Text>
-          <View style={styles.optionsRow}>
-            {STANDARDS.map((s) => (
-              <TouchableOpacity
-                key={s} onPress={() => { setStandard(s); setError('') }}
-                style={[styles.optionChip, standard === s && { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }]}
-              >
-                <Text style={[styles.optionChipText, standard === s && { color: '#fff' }]}>{s}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          {isFaculty && standard ? (
+            <Card style={[styles.card, { backgroundColor: '#E8F0FE', marginBottom: spacing.md }]}>
+              <Card.Content>
+                <Text variant="bodyMedium" style={{ fontWeight: '600', color: theme.colors.primary }}>
+                  Your assigned class: Standard {standard}{division ? ` - ${division}` : ''}
+                </Text>
+              </Card.Content>
+            </Card>
+          ) : (
+            <View style={styles.optionsRow}>
+              {STANDARDS.map((s) => (
+                <TouchableOpacity
+                  key={s} onPress={() => { setStandard(s); setError('') }}
+                  style={[styles.optionChip, standard === s && { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }]}
+                >
+                  <Text style={[styles.optionChipText, standard === s && { color: '#fff' }]}>{s}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
 
-          <Text variant="bodySmall" style={[styles.label, { marginTop: spacing.md }]}>Division</Text>
-          <View style={styles.optionsRow}>
-            <TouchableOpacity
-              onPress={() => setDivision('')}
-              style={[styles.optionChip, !division && { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }]}
-            >
-              <Text style={[styles.optionChipText, !division && { color: '#fff' }]}>All</Text>
-            </TouchableOpacity>
-            {DIVISIONS.map((d) => (
-              <TouchableOpacity
-                key={d} onPress={() => setDivision(d)}
-                style={[styles.optionChip, division === d && { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }]}
-              >
-                <Text style={[styles.optionChipText, division === d && { color: '#fff' }]}>{d}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          {!isFaculty && (
+            <>
+              <Text variant="bodySmall" style={[styles.label, { marginTop: spacing.md }]}>Division</Text>
+              <View style={styles.optionsRow}>
+                <TouchableOpacity
+                  onPress={() => setDivision('')}
+                  style={[styles.optionChip, !division && { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }]}
+                >
+                  <Text style={[styles.optionChipText, !division && { color: '#fff' }]}>All</Text>
+                </TouchableOpacity>
+                {DIVISIONS.map((d) => (
+                  <TouchableOpacity
+                    key={d} onPress={() => setDivision(d)}
+                    style={[styles.optionChip, division === d && { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }]}
+                  >
+                    <Text style={[styles.optionChipText, division === d && { color: '#fff' }]}>{d}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </>
+          )}
 
           <Text variant="bodySmall" style={[styles.label, { marginTop: spacing.md }]}>Subject</Text>
           <View style={styles.optionsRow}>
@@ -204,6 +252,7 @@ export default function MarkAttendanceScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F5F5' },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.sm, paddingBottom: spacing.sm },
+  center: { alignItems: 'center', justifyContent: 'center' },
   card: { borderRadius: radius.md },
   label: { color: '#666', marginBottom: spacing.xs, textTransform: 'uppercase', letterSpacing: 0.5, fontSize: 12 },
   optionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
