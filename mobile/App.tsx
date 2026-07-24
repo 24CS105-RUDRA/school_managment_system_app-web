@@ -22,6 +22,7 @@ import MarkAttendanceScreen from './src/screens/MarkAttendanceScreen'
 import FeePayScreen from './src/screens/FeePayScreen'
 import HomeworkSubmitScreen from './src/screens/HomeworkSubmitScreen'
 import StudentFeesScreen from './src/screens/StudentFeesScreen'
+import StudentAttendanceDetailScreen from './src/screens/StudentAttendanceDetailScreen'
 
 const Stack = createNativeStackNavigator()
 
@@ -87,6 +88,7 @@ export default function App() {
               <Stack.Screen name="FeePay" component={FeePayScreen} />
               <Stack.Screen name="HomeworkSubmit" component={HomeworkSubmitScreen} />
               <Stack.Screen name="StudentFees" component={StudentFeesScreen} />
+              <Stack.Screen name="StudentAttendanceDetail" component={StudentAttendanceDetailScreen} />
             </>
           ) : (
             <Stack.Screen name="Login">
