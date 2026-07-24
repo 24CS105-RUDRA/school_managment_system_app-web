@@ -1,7 +1,12 @@
+import { useEffect } from 'react'
+import { View } from 'react-native'
+import { ActivityIndicator } from 'react-native-paper'
 import CollapsibleSidebar from '../components/CollapsibleSidebar'
 import HomeScreen, { type Feature } from '../screens/HomeScreen'
 import ListScreen from '../screens/ListScreen'
 import ProfileScreen from '../screens/ProfileScreen'
+import { useNavigation } from '@react-navigation/native'
+import { useTheme } from 'react-native-paper'
 
 const items = [
   { name: 'Home', icon: 'home' as const },
@@ -9,6 +14,7 @@ const items = [
   { name: 'Homework', icon: 'book-open-page-variant' as const },
   { name: 'Timetable', icon: 'calendar-month-outline' as const },
   { name: 'Materials', icon: 'book-open-outline' as const },
+  { name: 'Fee', icon: 'currency-inr' as const },
   { name: 'Profile', icon: 'account-circle-outline' as const },
 ]
 
@@ -17,9 +23,23 @@ const features: Feature[] = [
   { label: 'Homework', icon: 'book-open-page-variant', accent: '#A3D977' },
   { label: 'Timetable', icon: 'calendar-month-outline', accent: '#A5D8FF' },
   { label: 'Materials', icon: 'book-open-outline', accent: '#9FE2D9' },
+  { label: 'Fee', icon: 'currency-inr', accent: '#FFB86C' },
 ]
 
+function FeeRedirect() {
+  const navigation = useNavigation<any>()
+  const theme = useTheme()
+  useEffect(() => { navigation.navigate('StudentFees') }, [])
+  return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+      <ActivityIndicator size="large" color={theme.colors.primary} />
+    </View>
+  )
+}
+
 export default function StudentTabs({ onLogout }: { onLogout: () => void }) {
+  const navigation = useNavigation<any>()
+
   return (
     <CollapsibleSidebar
       items={items}
@@ -56,6 +76,7 @@ export default function StudentTabs({ onLogout }: { onLogout: () => void }) {
                   chip: h.subject,
                   rightText: h.due_date ? new Date(h.due_date).toLocaleDateString() : undefined,
                 })}
+                onItemPress={(hw: any) => navigation.navigate('HomeworkSubmit', { homework: hw })}
               />
             )
           case 'Timetable':
@@ -82,6 +103,8 @@ export default function StudentTabs({ onLogout }: { onLogout: () => void }) {
                 })}
               />
             )
+          case 'Fee':
+            return <FeeRedirect />
           case 'Profile':
             return <ProfileScreen onLogout={onLogout} />
           default:

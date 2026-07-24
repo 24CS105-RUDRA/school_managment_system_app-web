@@ -1,7 +1,8 @@
-import { View, ScrollView, StyleSheet } from 'react-native'
+import { View, ScrollView, StyleSheet, Alert } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Card, Text, Button, Chip, useTheme } from 'react-native-paper'
 import { spacing, radius } from '../lib/theme'
+import { api } from '../lib/api'
 
 const HIDDEN_KEYS = new Set(['id', '_id', '__v', 'user_id', 'faculty_id', 'student_id', 'marked_by'])
 const SKIP_EMPTY = new Set(['created_at', 'updated_at'])
@@ -29,8 +30,14 @@ function getValueColor(key: string, value: any): string | undefined {
   return undefined
 }
 
+const EDIT_SCREEN_MAP: Record<string, string> = {
+  '/api/students': 'CreateStudent',
+  '/api/faculty': 'CreateFaculty',
+  '/api/notices': 'CreateNotice',
+}
+
 export default function DetailScreen({ route, navigation }: any) {
-  const { item, title } = route.params
+  const { item, title, endpoint, canEdit, canDelete } = route.params
   const theme = useTheme()
   const insets = useSafeAreaInsets()
 
@@ -41,6 +48,37 @@ export default function DetailScreen({ route, navigation }: any) {
       v !== '' &&
       (typeof v !== 'object' || v === null)
   )
+
+  const handleEdit = () => {
+    const screenName = EDIT_SCREEN_MAP[endpoint]
+    if (!screenName) {
+      Alert.alert('Error', 'Edit not available for this item')
+      return
+    }
+    navigation.navigate(screenName, { editItem: item })
+  }
+
+  const handleDelete = () => {
+    Alert.alert(
+      'Confirm Delete',
+      `Delete this ${title}? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const res = await api.delete(`${endpoint}/${item.id}`)
+            if (res.success) {
+              navigation.goBack()
+            } else {
+              Alert.alert('Error', res.error || 'Delete failed')
+            }
+          },
+        },
+      ]
+    )
+  }
 
   return (
     <View style={styles.container}>
@@ -55,6 +93,11 @@ export default function DetailScreen({ route, navigation }: any) {
         >
           {title}
         </Text>
+        {canEdit && (
+          <Button icon="pencil" onPress={handleEdit} mode="text" compact>
+            Edit
+          </Button>
+        )}
       </View>
       <ScrollView contentContainerStyle={{ paddingBottom: spacing.xl }}>
         <Card style={styles.card} mode="elevated">
@@ -106,6 +149,18 @@ export default function DetailScreen({ route, navigation }: any) {
               ))}
             </Card.Content>
           </Card>
+        )}
+        {canDelete && (
+          <View style={{ paddingHorizontal: spacing.md, marginTop: spacing.lg }}>
+            <Button
+              mode="contained"
+              buttonColor={theme.colors.error}
+              onPress={handleDelete}
+              icon="delete"
+            >
+              Delete {title}
+            </Button>
+          </View>
         )}
       </ScrollView>
     </View>

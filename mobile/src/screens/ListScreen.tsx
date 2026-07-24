@@ -13,6 +13,7 @@ import {
   Button,
   Chip,
   Searchbar,
+  FAB,
   useTheme,
 } from 'react-native-paper'
 import { useNavigation } from '@react-navigation/native'
@@ -35,6 +36,11 @@ interface ListScreenProps<T> {
   }
   detailKey?: string
   showSearch?: boolean
+  canAdd?: boolean
+  onAddPress?: () => void
+  canEdit?: boolean
+  canDelete?: boolean
+  onItemPress?: (item: T) => void
 }
 
 function getKey(item: any): string {
@@ -86,6 +92,11 @@ export default function ListScreen<T extends Record<string, any>>({
   renderItem,
   detailKey = 'id',
   showSearch = true,
+  canAdd = false,
+  onAddPress,
+  canEdit = false,
+  canDelete = false,
+  onItemPress,
 }: ListScreenProps<T>) {
   const [items, setItems] = useState<T[]>([])
   const [loading, setLoading] = useState(true)
@@ -190,11 +201,14 @@ export default function ListScreen<T extends Record<string, any>>({
               <TouchableOpacity
                 activeOpacity={0.7}
                 onPress={() => {
+                  if (onItemPress) { onItemPress(item); return }
                   if (item[detailKey]) {
                     navigation.navigate('Detail', {
                       item,
                       title: r.title,
                       endpoint,
+                      canEdit,
+                      canDelete,
                     })
                   }
                 }}
@@ -250,12 +264,26 @@ export default function ListScreen<T extends Record<string, any>>({
           }}
         />
       )}
+      {canAdd && onAddPress ? (
+        <FAB
+          icon="plus"
+          style={styles.fab}
+          onPress={onAddPress}
+          color="#fff"
+        />
+      ) : null}
     </View>
   )
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: spacing.md, backgroundColor: '#F5F5F5' },
+  fab: {
+    position: 'absolute',
+    right: spacing.md,
+    bottom: spacing.md,
+    backgroundColor: '#0F4C81',
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',

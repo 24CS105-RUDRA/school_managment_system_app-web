@@ -2,6 +2,7 @@ import CollapsibleSidebar from '../components/CollapsibleSidebar'
 import HomeScreen, { type Feature } from '../screens/HomeScreen'
 import ListScreen from '../screens/ListScreen'
 import ProfileScreen from '../screens/ProfileScreen'
+import { useNavigation } from '@react-navigation/native'
 
 const items = [
   { name: 'Home', icon: 'home' as const },
@@ -9,6 +10,7 @@ const items = [
   { name: 'Attendance', icon: 'calendar-check-outline' as const },
   { name: 'Homework', icon: 'book-open-page-variant' as const },
   { name: 'Notices', icon: 'clipboard-text-outline' as const },
+  { name: 'Materials', icon: 'book-open-outline' as const },
   { name: 'Profile', icon: 'account-circle-outline' as const },
 ]
 
@@ -17,9 +19,12 @@ const features: Feature[] = [
   { label: 'Attendance', icon: 'calendar-check-outline', accent: '#AED581' },
   { label: 'Homework', icon: 'book-open-page-variant', accent: '#A3D977' },
   { label: 'Notices', icon: 'clipboard-text-outline', accent: '#F8A5C2' },
+  { label: 'Materials', icon: 'book-open-outline', accent: '#9FE2D9' },
 ]
 
 export default function FacultyTabs({ onLogout }: { onLogout: () => void }) {
+  const navigation = useNavigation<any>()
+
   return (
     <CollapsibleSidebar
       items={items}
@@ -44,6 +49,8 @@ export default function FacultyTabs({ onLogout }: { onLogout: () => void }) {
             return (
               <ListScreen
                 endpoint="/api/attendance" title="Attendance" onLogout={onLogout}
+                canAdd
+                onAddPress={() => navigation.navigate('MarkAttendance')}
                 extractItems={(d) => d as any[]}
                 renderItem={(a: any) => ({
                   title: `Class ${a.standard || ''}-${a.division || ''}`,
@@ -57,6 +64,8 @@ export default function FacultyTabs({ onLogout }: { onLogout: () => void }) {
             return (
               <ListScreen
                 endpoint="/api/homework" title="Homework" onLogout={onLogout}
+                canAdd
+                onAddPress={() => navigation.navigate('CreateHomework')}
                 extractItems={(d) => d as any[]}
                 renderItem={(h: any) => ({
                   title: h.title,
@@ -70,6 +79,8 @@ export default function FacultyTabs({ onLogout }: { onLogout: () => void }) {
             return (
               <ListScreen
                 endpoint="/api/notices" title="Notices" onLogout={onLogout}
+                canAdd
+                onAddPress={() => navigation.navigate('CreateNotice')}
                 extractItems={(d) => d as any[]}
                 renderItem={(n: any) => ({
                   title: n.title,
@@ -80,6 +91,20 @@ export default function FacultyTabs({ onLogout }: { onLogout: () => void }) {
                   rightText: n.published_date
                     ? new Date(n.published_date).toLocaleDateString()
                     : new Date(n.created_at).toLocaleDateString(),
+                })}
+              />
+            )
+          case 'Materials':
+            return (
+              <ListScreen
+                endpoint="/api/study-materials" title="Study Materials" onLogout={onLogout}
+                canAdd
+                onAddPress={() => navigation.navigate('CreateMaterial')}
+                extractItems={(d) => d as any[]}
+                renderItem={(m: any) => ({
+                  title: m.title,
+                  subtitle: `Subject: ${m.subject} | Class ${m.standard}`,
+                  chip: m.file_type?.split('/').pop() || 'file',
                 })}
               />
             )

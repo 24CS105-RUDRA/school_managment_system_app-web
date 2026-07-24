@@ -1,4 +1,3 @@
-import crypto from 'node:crypto'
 import { Router, type Request, type Response } from 'express'
 import { getDb } from '../config/database.js'
 import { ok, fail } from '../utils/response.js'

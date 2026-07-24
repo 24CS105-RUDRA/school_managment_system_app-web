@@ -1,4 +1,3 @@
-import crypto from 'node:crypto'
 import { MongoClient, Db, ClientSession } from 'mongodb'
 import { getEnv } from './environment.js'
 import bcrypt from 'bcryptjs'
@@ -160,4 +159,3 @@ export async function withTransaction<T>(cb: (session: ClientSession) => Promise
     await session.endSession()
   }
 }
-

@@ -11,6 +11,17 @@ import FacultyTabs from './src/navigation/FacultyTabs'
 import AdminTabs from './src/navigation/AdminTabs'
 import DetailScreen from './src/screens/DetailScreen'
 import SettingsScreen from './src/screens/SettingsScreen'
+import CreateStudentScreen from './src/screens/CreateStudentScreen'
+import CreateFacultyScreen from './src/screens/CreateFacultyScreen'
+import CreateHomeworkScreen from './src/screens/CreateHomeworkScreen'
+import CreateNoticeScreen from './src/screens/CreateNoticeScreen'
+import CreateFeeScreen from './src/screens/CreateFeeScreen'
+import CreateMaterialScreen from './src/screens/CreateMaterialScreen'
+import CreateGalleryScreen from './src/screens/CreateGalleryScreen'
+import MarkAttendanceScreen from './src/screens/MarkAttendanceScreen'
+import FeePayScreen from './src/screens/FeePayScreen'
+import HomeworkSubmitScreen from './src/screens/HomeworkSubmitScreen'
+import StudentFeesScreen from './src/screens/StudentFeesScreen'
 
 const Stack = createNativeStackNavigator()
 
@@ -65,6 +76,17 @@ export default function App() {
               )}
               <Stack.Screen name="Detail" component={DetailScreen} />
               <Stack.Screen name="Settings" component={SettingsScreen} />
+              <Stack.Screen name="CreateStudent" component={CreateStudentScreen} />
+              <Stack.Screen name="CreateFaculty" component={CreateFacultyScreen} />
+              <Stack.Screen name="CreateHomework" component={CreateHomeworkScreen} />
+              <Stack.Screen name="CreateNotice" component={CreateNoticeScreen} />
+              <Stack.Screen name="CreateFee" component={CreateFeeScreen} />
+              <Stack.Screen name="CreateMaterial" component={CreateMaterialScreen} />
+              <Stack.Screen name="CreateGallery" component={CreateGalleryScreen} />
+              <Stack.Screen name="MarkAttendance" component={MarkAttendanceScreen} />
+              <Stack.Screen name="FeePay" component={FeePayScreen} />
+              <Stack.Screen name="HomeworkSubmit" component={HomeworkSubmitScreen} />
+              <Stack.Screen name="StudentFees" component={StudentFeesScreen} />
             </>
           ) : (
             <Stack.Screen name="Login">
