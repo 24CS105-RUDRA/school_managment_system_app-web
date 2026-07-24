@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { View, StyleSheet } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   Card,
   Text,
@@ -19,6 +20,7 @@ export default function SettingsScreen({ navigation }: any) {
   const [saving, setSaving] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null)
   const theme = useTheme()
+  const insets = useSafeAreaInsets()
 
   useEffect(() => {
     ;(async () => {
@@ -54,7 +56,7 @@ export default function SettingsScreen({ navigation }: any) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
         <Button icon="arrow-left" onPress={() => navigation.goBack()} mode="text" compact>
           Back
         </Button>
@@ -91,7 +93,7 @@ export default function SettingsScreen({ navigation }: any) {
                 backgroundColor: testResult.ok ? '#E8F5E9' : '#FFEBEE',
                 borderRadius: radius.sm,
               }}
-              mode="flat"
+              mode="elevated"
             >
               <Card.Content>
                 <Text

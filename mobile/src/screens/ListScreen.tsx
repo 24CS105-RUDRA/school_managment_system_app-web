@@ -132,10 +132,7 @@ export default function ListScreen<T extends Record<string, any>>({
   if (loading) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
-          <Text variant="headlineMedium" style={{ fontWeight: '700' }}>{title}</Text>
-          <Button onPress={logout} compact mode="text">Logout</Button>
-        </View>
+        <Text variant="headlineMedium" style={{ fontWeight: '700', marginBottom: spacing.sm }}>{title}</Text>
         {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
       </View>
     )
@@ -144,10 +141,7 @@ export default function ListScreen<T extends Record<string, any>>({
   if (error) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
-          <Text variant="headlineMedium" style={{ fontWeight: '700' }}>{title}</Text>
-          <Button onPress={logout} compact mode="text">Logout</Button>
-        </View>
+        <Text variant="headlineMedium" style={{ fontWeight: '700', marginBottom: spacing.sm }}>{title}</Text>
         <View style={styles.center}>
           <Text style={styles.errorIcon}>⚠️</Text>
           <Text variant="bodyLarge" style={{ color: theme.colors.error, textAlign: 'center', marginBottom: spacing.md }}>
@@ -163,10 +157,7 @@ export default function ListScreen<T extends Record<string, any>>({
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text variant="headlineMedium" style={{ fontWeight: '700' }}>{title}</Text>
-        <Button onPress={logout} compact mode="text">Logout</Button>
-      </View>
+      <Text variant="headlineMedium" style={{ fontWeight: '700', marginBottom: spacing.sm }}>{title}</Text>
       {showSearch && items.length > 0 && (
         <Searchbar
           placeholder="Search..."

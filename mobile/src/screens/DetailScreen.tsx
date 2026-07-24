@@ -1,4 +1,5 @@
 import { View, ScrollView, StyleSheet } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Card, Text, Button, Chip, useTheme } from 'react-native-paper'
 import { spacing, radius } from '../lib/theme'
 
@@ -31,6 +32,7 @@ function getValueColor(key: string, value: any): string | undefined {
 export default function DetailScreen({ route, navigation }: any) {
   const { item, title } = route.params
   const theme = useTheme()
+  const insets = useSafeAreaInsets()
 
   const fields = Object.entries(item).filter(
     ([k, v]) =>
@@ -42,7 +44,7 @@ export default function DetailScreen({ route, navigation }: any) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
         <Button icon="arrow-left" onPress={() => navigation.goBack()} mode="text" compact>
           Back
         </Button>
