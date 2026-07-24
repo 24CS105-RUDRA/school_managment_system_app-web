@@ -33,8 +33,8 @@ async function start(): Promise<void> {
   app.use(morgan('dev'))
   app.use(authMiddleware)
 
-  app.get('/health', (_req: Request, res: Response) => {
-    res.json({ status: 'OK', message: 'School Management API is running' })
+    app.get('/health', (_req: Request, res: Response) => {
+    res.json({ status: 'OK', message: 'School Management API is running', version: '2.0' })
   })
 
   app.use('/api/auth', authRoutes)
