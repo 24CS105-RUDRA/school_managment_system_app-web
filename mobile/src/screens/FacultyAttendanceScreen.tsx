@@ -209,7 +209,7 @@ export default function FacultyAttendanceScreen({ navigation }: any) {
     if (mode === 'view') return
     setRecords((prev) => {
       const cur = prev[studentId] || 'present'
-      const next = cur === 'present' ? 'absent' : cur === 'absent' ? 'late' : 'present'
+      const next = cur === 'present' ? 'absent' : 'present'
       return { ...prev, [studentId]: next }
     })
   }
@@ -372,10 +372,7 @@ export default function FacultyAttendanceScreen({ navigation }: any) {
                 Present: {Object.values(records).filter((s) => s === 'present').length}
               </Chip>
               <Chip compact style={{ backgroundColor: '#FFCDD2' }} textStyle={{ fontSize: 11 }}>
-                Absent: {Object.values(records).filter((s) => s === 'absent').length}
-              </Chip>
-              <Chip compact style={{ backgroundColor: '#FFE0B2' }} textStyle={{ fontSize: 11 }}>
-                Late: {Object.values(records).filter((s) => s === 'late').length}
+                Absent: {Object.values(records).filter((s) => s !== 'present').length}
               </Chip>
             </View>
           ) : selectedDate && selectedDate <= todayStr ? (

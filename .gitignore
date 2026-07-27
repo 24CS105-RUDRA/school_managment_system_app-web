@@ -33,3 +33,4 @@ mobile/.expo/
 # server compiled output
 server/dist/
 server/config/environment.ts
+mobile/dist/
