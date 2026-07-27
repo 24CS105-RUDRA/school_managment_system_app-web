@@ -65,20 +65,24 @@ router.post('/', requireRole('admin', 'faculty'), async (req: AuthedRequest, res
     const db = await getDb()
     const body = req.body || {}
     const { standard, division, attendance_date, subject, attendance_records } = body
-    if (!standard || !division || !attendance_date || !Array.isArray(attendance_records)) {
-      return fail(res, 'standard, division, attendance_date and attendance_records are required')
+    if (!standard || !attendance_date || !Array.isArray(attendance_records)) {
+      return fail(res, 'standard, attendance_date and attendance_records are required')
     }
 
     const now = new Date().toISOString()
     const docId = crypto.randomUUID()
+    const filter: any = { standard, attendance_date, subject: subject || 'General' }
+    if (division) filter.division = division
+    const setData: any = {
+      standard, attendance_date, subject: subject || 'General',
+      faculty_id: req.user!.id, marked_by: req.user!.id,
+      attendance_records, updated_at: now,
+    }
+    if (division) setData.division = division
     const r = await db.collection('attendance').updateOne(
-      { standard, division, attendance_date, subject: subject || 'General' },
+      filter,
       {
-        $set: {
-          standard, division, attendance_date, subject: subject || 'General',
-          faculty_id: req.user!.id, marked_by: req.user!.id,
-          attendance_records, updated_at: now,
-        },
+        $set: setData,
         $setOnInsert: { id: docId, created_at: now },
       },
       { upsert: true }

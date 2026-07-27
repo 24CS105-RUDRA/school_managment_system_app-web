@@ -228,7 +228,7 @@ export default function FacultyAttendanceScreen({ navigation }: any) {
     }))
     const res = await api.post('/api/attendance', {
       standard,
-      division: division || undefined,
+      division: division || '',
       attendance_date: selectedDate,
       attendance_records,
     })
