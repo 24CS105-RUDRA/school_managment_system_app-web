@@ -1,12 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { View, ScrollView, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native'
-import { Card, Text, Button, TextInput, useTheme, ActivityIndicator, Chip, Searchbar, Divider } from 'react-native-paper'
+import { Card, Text, Button, useTheme, ActivityIndicator, Chip, Searchbar, Divider } from 'react-native-paper'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { tokenStore } from '../lib/storage'
 import { api } from '../lib/api'
 import { spacing, radius } from '../lib/theme'
 
-const SUBJECTS = ['Maths','Science','English','Hindi','Sanskrit','Social Studies','Computer','Physics','Chemistry','Biology']
 const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
 
 function fmt(d: Date): string {
@@ -25,7 +24,6 @@ export default function FacultyAttendanceScreen({ navigation }: any) {
   const [user, setUser] = useState<any>(null)
   const [standard, setStandard] = useState('')
   const [division, setDivision] = useState('')
-  const [subject, setSubject] = useState('General')
   const [selectedDate, setSelectedDate] = useState(fmt(new Date()))
   const [calendarMonth, setCalendarMonth] = useState(() => new Date().getMonth())
   const [calendarYear, setCalendarYear] = useState(() => new Date().getFullYear())
@@ -39,7 +37,6 @@ export default function FacultyAttendanceScreen({ navigation }: any) {
   const [mode, setMode] = useState<'loading' | 'mark' | 'view' | 'no-class'>('loading')
   const [searchQuery, setSearchQuery] = useState('')
   const [dateSearchQuery, setDateSearchQuery] = useState('')
-  const [showSubjectPicker, setShowSubjectPicker] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [monthlyStats, setMonthlyStats] = useState<any>(null)
   const [showMonthly, setShowMonthly] = useState(false)
@@ -139,7 +136,6 @@ export default function FacultyAttendanceScreen({ navigation }: any) {
     if (attRes.success && attRes.data && attRes.data.length > 0) {
       const attDoc = attRes.data[0]
       setExistingAttendance(attDoc)
-      setSubject(attDoc.subject || 'General')
       const recMap: Record<string, string> = {}
       ;(attDoc.attendance_records || []).forEach((r: any) => {
         recMap[r.student_id] = r.status
@@ -234,7 +230,6 @@ export default function FacultyAttendanceScreen({ navigation }: any) {
       standard,
       division: division || undefined,
       attendance_date: selectedDate,
-      subject,
       attendance_records,
     })
     setSubmitting(false)
@@ -294,36 +289,10 @@ export default function FacultyAttendanceScreen({ navigation }: any) {
           <Chip style={{ backgroundColor: theme.colors.primaryContainer }}>
             Std {standard}{division ? ` - ${division}` : ''}
           </Chip>
-          <Chip
-            style={{ backgroundColor: '#E8F5E9' }}
-            onPress={() => setShowSubjectPicker(true)}
-          >
-            {subject} ▼
-          </Chip>
           <Text variant="bodySmall" style={{ color: '#888', alignSelf: 'center', marginLeft: 'auto' }}>
             {allMonthAttendance.length} days marked
           </Text>
         </View>
-
-        {/* Subject Picker Modal (inline) */}
-        {showSubjectPicker && (
-          <Card style={{ marginHorizontal: spacing.md, marginBottom: spacing.sm, borderRadius: radius.md }} mode="elevated">
-            <Card.Content>
-              <Text variant="bodySmall" style={styles.label}>Select Subject</Text>
-              <View style={styles.optionsRow}>
-                {SUBJECTS.map((s) => (
-                  <TouchableOpacity
-                    key={s} onPress={() => { setSubject(s); setShowSubjectPicker(false) }}
-                    style={[styles.optChip, subject === s && { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }]}
-                  >
-                    <Text style={[styles.optChipText, subject === s && { color: '#fff' }]}>{s}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <Button compact onPress={() => setShowSubjectPicker(false)}>Close</Button>
-            </Card.Content>
-          </Card>
-        )}
 
         {/* Calendar Navigation */}
         <View style={styles.calNav}>
@@ -533,7 +502,7 @@ export default function FacultyAttendanceScreen({ navigation }: any) {
                         <Chip compact style={{ backgroundColor: '#FFCDD2' }} textStyle={{ fontSize: 10, fontWeight: '600' }}>
                           {item.doc?.attendance_records?.filter((r: any) => r.status !== 'present').length || 0} A
                         </Chip>
-                        <Text variant="bodySmall" style={{ color: '#888' }}>{item.doc?.subject || ''}</Text>
+
                       </View>
                     ) : (
                       <Chip compact style={{ backgroundColor: '#F5F5F5' }} textStyle={{ fontSize: 10, color: '#888' }}>Not marked</Chip>
@@ -703,12 +672,6 @@ const styles = StyleSheet.create({
   dateRowContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   dateRowLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   dateDayNum: { fontSize: 18, fontWeight: '700', color: '#333', width: 28 },
-
-  // Options
-  label: { color: '#666', marginBottom: spacing.xs, textTransform: 'uppercase', letterSpacing: 0.5, fontSize: 12 },
-  optionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
-  optChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: radius.pill, borderWidth: 1.5, borderColor: '#ddd', backgroundColor: '#fff' },
-  optChipText: { fontSize: 13, fontWeight: '600', color: '#333' },
 
   section: { paddingHorizontal: spacing.md, paddingTop: spacing.md },
   sectionTitle: { fontWeight: '700', marginBottom: spacing.sm, color: '#333' },
