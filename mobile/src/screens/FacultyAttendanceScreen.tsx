@@ -275,11 +275,6 @@ export default function FacultyAttendanceScreen({ navigation }: any) {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        <Button icon="arrow-left" onPress={() => navigation.goBack()} mode="text" compact>Back</Button>
-        <Text variant="titleMedium" style={{ fontWeight: '700', flex: 1, marginLeft: spacing.sm }}>Attendance</Text>
-      </View>
-
       <ScrollView
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         contentContainerStyle={{ paddingBottom: spacing.xxl }}
@@ -639,7 +634,6 @@ function MonthlyStatsView({ stats, students }: { stats: any; students: any[] }) 
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F5F5' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.sm, paddingBottom: spacing.sm },
   center: { alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
   card: { borderRadius: radius.md },
 

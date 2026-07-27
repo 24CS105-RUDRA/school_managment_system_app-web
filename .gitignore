@@ -34,3 +34,4 @@ mobile/.expo/
 server/dist/
 server/config/environment.ts
 mobile/dist/
+*.swp
