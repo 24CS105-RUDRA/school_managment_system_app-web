@@ -1,7 +1,9 @@
+import { View } from 'react-native'
 import CollapsibleSidebar from '../components/CollapsibleSidebar'
 import HomeScreen, { type Feature } from '../screens/HomeScreen'
 import ListScreen from '../screens/ListScreen'
 import ProfileScreen from '../screens/ProfileScreen'
+import AdminAttendanceScreen from '../screens/AdminAttendanceScreen'
 import { useNavigation } from '@react-navigation/native'
 
 const items = [
@@ -69,16 +71,9 @@ export default function AdminTabs({ onLogout }: { onLogout: () => void }) {
             )
           case 'Attendance':
             return (
-              <ListScreen
-                endpoint="/api/attendance" title="Attendance" onLogout={onLogout}
-                extractItems={(d) => d as any[]}
-                renderItem={(a: any) => ({
-                  title: `Class ${a.standard || ''}-${a.division || ''}`,
-                  subtitle: a.subject,
-                  chip: new Date(a.attendance_date).toLocaleDateString(),
-                  rightText: `${a.attendance_records?.length || 0} students`,
-                })}
-              />
+              <View style={{ flex: 1 }}>
+                <AdminAttendanceScreen navigation={navigation} />
+              </View>
             )
           case 'Homework':
             return (
