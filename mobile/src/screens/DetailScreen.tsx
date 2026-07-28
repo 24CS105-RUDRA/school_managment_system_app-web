@@ -4,7 +4,7 @@ import { Card, Text, Button, Chip, useTheme } from 'react-native-paper'
 import { spacing, radius } from '../lib/theme'
 import { api } from '../lib/api'
 
-const HIDDEN_KEYS = new Set(['id', '_id', '__v', 'user_id', 'faculty_id', 'student_id', 'marked_by'])
+const HIDDEN_KEYS = new Set(['id', '_id', '__v', 'user_id', 'faculty_id', 'student_id', 'marked_by', 'is_published', 'published_date', 'created_at', 'updated_at', 'created_by'])
 const SKIP_EMPTY = new Set(['created_at', 'updated_at'])
 
 function formatLabel(key: string): string {
