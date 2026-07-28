@@ -5,11 +5,13 @@ import CollapsibleSidebar from '../components/CollapsibleSidebar'
 import HomeScreen, { type Feature } from '../screens/HomeScreen'
 import ListScreen from '../screens/ListScreen'
 import ProfileScreen from '../screens/ProfileScreen'
+import StudentAttendanceScreen from '../screens/StudentAttendanceScreen'
 import { useNavigation } from '@react-navigation/native'
 import { useTheme } from 'react-native-paper'
 
 const items = [
   { name: 'Home', icon: 'home' as const },
+  { name: 'Attendance', icon: 'calendar-check-outline' as const },
   { name: 'Notices', icon: 'clipboard-text-outline' as const },
   { name: 'Homework', icon: 'book-open-page-variant' as const },
   { name: 'Timetable', icon: 'calendar-month-outline' as const },
@@ -19,6 +21,7 @@ const items = [
 ]
 
 const features: Feature[] = [
+  { label: 'Attendance', icon: 'calendar-check-outline', accent: '#AED581' },
   { label: 'Notices', icon: 'clipboard-text-outline', accent: '#F8A5C2' },
   { label: 'Homework', icon: 'book-open-page-variant', accent: '#A3D977' },
   { label: 'Timetable', icon: 'calendar-month-outline', accent: '#A5D8FF' },
@@ -48,6 +51,12 @@ export default function StudentTabs({ onLogout }: { onLogout: () => void }) {
         switch (route) {
           case 'Home':
             return <HomeScreen onLogout={onLogout} features={features} />
+          case 'Attendance':
+            return (
+              <View style={{ flex: 1 }}>
+                <StudentAttendanceScreen navigation={navigation} />
+              </View>
+            )
           case 'Notices':
             return (
               <ListScreen
