@@ -1,4 +1,5 @@
 import 'dotenv/config'
+import { execSync } from 'node:child_process'
 import express, { type Request, type Response, type NextFunction } from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
@@ -33,8 +34,10 @@ async function start(): Promise<void> {
   app.use(morgan('dev'))
   app.use(authMiddleware)
 
+const COMMIT_HASH = (() => { try { return execSync('git rev-parse --short HEAD', { encoding: 'utf8', cwd: process.cwd() }).trim() } catch { return 'unknown' } })()
+
     app.get('/health', (_req: Request, res: Response) => {
-    res.json({ status: 'OK', message: 'School Management API is running', version: '2.0' })
+    res.json({ status: 'OK', message: 'School Management API is running', version: '2.0', commit: COMMIT_HASH })
   })
 
   app.use('/api/auth', authRoutes)
