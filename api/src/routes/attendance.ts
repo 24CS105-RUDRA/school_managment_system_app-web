@@ -31,7 +31,7 @@ router.get('/student/:id', requireAuth, async (req: AuthedRequest, res: Response
       .toArray()
 
     const result = docs.map((doc: any) => {
-      const rec = (doc.attendance_records || []).find((r: any) => r.student_id === req.params.id)
+      const rec = (doc.attendance_records || []).find((r: any) => r.student_id === student.id)
       return {
         id: doc.id,
         attendance_date: doc.attendance_date,
