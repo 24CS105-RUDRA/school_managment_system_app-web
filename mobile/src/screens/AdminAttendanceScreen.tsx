@@ -20,8 +20,8 @@ function getFirstDayOfMonth(year: number, month: number): number {
 }
 
 export default function AdminAttendanceScreen({ navigation }: any) {
-  const [classes, setClasses] = useState<string[]>([])
-  const [selectedClass, setSelectedClass] = useState('')
+  const [classes, setClasses] = useState<{ label: string; standard: string; division: string }[]>([])
+  const [selectedClass, setSelectedClass] = useState<{ standard: string; division: string } | null>(null)
   const [students, setStudents] = useState<any[]>([])
   const [allAttendance, setAllAttendance] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -40,25 +40,37 @@ export default function AdminAttendanceScreen({ navigation }: any) {
       if (!res.success) return
       const all = res.data || []
       setStudents(all)
-      const stds = [...new Set(all.map((s: any) => s.standard).filter(Boolean))].sort()
-      setClasses(stds)
+      const seen = new Set<string>()
+      const cls: { label: string; standard: string; division: string }[] = []
+      all.forEach((s: any) => {
+        const std = s.standard
+        const div = s.division || ''
+        const key = `${std}-${div}`
+        if (std && !seen.has(key)) {
+          seen.add(key)
+          cls.push({ label: div ? `${std}-${div}` : `Std ${std}`, standard: std, division: div })
+        }
+      })
+      cls.sort((a, b) => a.label.localeCompare(b.label))
+      setClasses(cls)
       setLoading(false)
     })()
   }, [])
 
   // Load attendance for selected class
-  const loadAttendance = useCallback(async (std: string) => {
+  const loadAttendance = useCallback(async (std: string, div: string) => {
     setAllAttendance([])
     setSelectedDate('')
     const res = await api.get<any[]>('/api/attendance')
     if (res.success) {
-      const filtered = (res.data || []).filter((a: any) => a.standard === std)
+      const filtered = (res.data || []).filter((a: any) => a.standard === std && a.division === div)
       setAllAttendance(filtered)
     }
   }, [])
 
   const classStudents = useMemo(() => {
-    return students.filter((s: any) => s.standard === selectedClass)
+    if (!selectedClass) return []
+    return students.filter((s: any) => s.standard === selectedClass.standard && (s.division || '') === selectedClass.division)
   }, [students, selectedClass])
 
   const attendanceByDate = useMemo(() => {
@@ -127,15 +139,15 @@ export default function AdminAttendanceScreen({ navigation }: any) {
         <View style={{ padding: spacing.md }}>
           <Text variant="titleMedium" style={{ fontWeight: '700', marginBottom: spacing.md }}>Select Class</Text>
           <View style={{ gap: spacing.sm }}>
-            {classes.map((std) => {
-              const count = students.filter((s: any) => s.standard === std).length
+            {classes.map((c) => {
+              const count = students.filter((s: any) => s.standard === c.standard && (s.division || '') === c.division).length
               return (
-                <TouchableOpacity key={std} onPress={() => { setSelectedClass(std); loadAttendance(std) }}>
+                <TouchableOpacity key={c.label} onPress={() => { setSelectedClass(c); loadAttendance(c.standard, c.division) }}>
                   <Card style={{ borderRadius: radius.md }} mode="elevated">
                     <Card.Content style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-                      <Avatar.Text size={44} label={std} style={{ backgroundColor: theme.colors.primary }} />
+                      <Avatar.Text size={44} label={c.label} style={{ backgroundColor: theme.colors.primary }} />
                       <View>
-                        <Text variant="titleSmall" style={{ fontWeight: '600' }}>Standard {std}</Text>
+                        <Text variant="titleSmall" style={{ fontWeight: '600' }}>{c.label}</Text>
                         <Text variant="bodySmall" style={{ color: '#888' }}>{count} students</Text>
                       </View>
                     </Card.Content>
@@ -152,8 +164,8 @@ export default function AdminAttendanceScreen({ navigation }: any) {
   return (
     <View style={styles.container}>
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md, paddingTop: spacing.sm, gap: spacing.sm }}>
-        <Button icon="arrow-left" mode="text" compact onPress={() => { setSelectedClass(''); setSelectedDate('') }}>Classes</Button>
-        <Chip style={{ backgroundColor: theme.colors.primaryContainer }}>Std {selectedClass}</Chip>
+        <Button icon="arrow-left" mode="text" compact onPress={() => { setSelectedClass(null); setSelectedDate('') }}>Classes</Button>
+        <Chip style={{ backgroundColor: theme.colors.primaryContainer }}>{selectedClass.division ? `${selectedClass.standard}-${selectedClass.division}` : `Std ${selectedClass.standard}`}</Chip>
         <Text variant="bodySmall" style={{ color: '#888', marginLeft: 'auto' }}>{allAttendance.length} days</Text>
       </View>
 
