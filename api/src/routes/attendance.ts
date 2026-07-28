@@ -21,7 +21,7 @@ router.get('/', requireRole('admin', 'faculty'), async (_req: AuthedRequest, res
 router.get('/student/:id', requireAuth, async (req: AuthedRequest, res: Response) => {
   try {
     const db = await getDb()
-    const student = await db.collection('students').findOne({ id: req.params.id })
+    const student = await db.collection('students').findOne({ user_id: req.params.id })
     if (!student) return fail(res, 'Student not found', 404)
 
     const docs = await db
