@@ -168,7 +168,7 @@ export default function FormScreen({ route, navigation }: FormScreenProps) {
                 onChangeText={(v) => setField(f.key, v)}
                 keyboardType={f.type === 'number' ? 'numeric' : 'default'}
                 multiline={f.type === 'textarea'}
-                numberOfLines={f.type === 'textarea' ? 3 : 1}
+                numberOfLines={f.type === 'textarea' ? 8 : 1}
                 placeholder={f.placeholder}
                 error={!!errors[f.key]}
                 style={styles.input}
