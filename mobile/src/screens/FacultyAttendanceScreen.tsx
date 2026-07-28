@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { View, ScrollView, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native'
-import { Card, Text, Button, useTheme, ActivityIndicator, Chip, Searchbar, Divider } from 'react-native-paper'
+import { Card, Text, Button, useTheme, ActivityIndicator, Chip, Divider } from 'react-native-paper'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { tokenStore } from '../lib/storage'
 import { api } from '../lib/api'
@@ -35,8 +35,6 @@ export default function FacultyAttendanceScreen({ navigation }: any) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [mode, setMode] = useState<'loading' | 'mark' | 'view' | 'no-class'>('loading')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [dateSearchQuery, setDateSearchQuery] = useState('')
   const [refreshing, setRefreshing] = useState(false)
   const [monthlyStats, setMonthlyStats] = useState<any>(null)
   const [showMonthly, setShowMonthly] = useState(false)
@@ -182,28 +180,6 @@ export default function FacultyAttendanceScreen({ navigation }: any) {
     return days
   }, [calendarYear, calendarMonth])
 
-  // Build date list for the month
-  const monthDateList = useMemo(() => {
-    const total = daysInMonth(calendarYear, calendarMonth)
-    const list: { date: string; day: number; hasAttendance: boolean; doc: any }[] = []
-    for (let d = 1; d <= total; d++) {
-      const ds = fmt(new Date(calendarYear, calendarMonth, d))
-      if (ds > todayStr) continue  // skip future dates
-      const doc = allMonthAttendance.find((a: any) => a.attendance_date === ds)
-      list.push({ date: ds, day: d, hasAttendance: !!doc, doc: doc || null })
-    }
-    return list
-  }, [calendarYear, calendarMonth, allMonthAttendance, todayStr])
-
-  const filteredDateList = useMemo(() => {
-    if (!dateSearchQuery.trim()) return monthDateList
-    const q = dateSearchQuery.toLowerCase()
-    return monthDateList.filter((item) => {
-      const d = new Date(item.date)
-      const dateStr = d.toLocaleDateString('en-IN')
-      return item.date.includes(q) || dateStr.includes(q) || String(item.day).includes(q)
-    })
-  }, [monthDateList, dateSearchQuery])
 
   const toggleStatus = (studentId: string) => {
     if (mode === 'view') return
@@ -451,76 +427,6 @@ export default function FacultyAttendanceScreen({ navigation }: any) {
           </View>
         ) : null}
 
-        {/* Date Search & List */}
-        <View style={styles.section}>
-          <Text variant="titleSmall" style={styles.sectionTitle}>Date-wise Attendance</Text>
-          <Searchbar
-            placeholder="Search by date (e.g. 2026-07 or 24)..."
-            onChangeText={setDateSearchQuery}
-            value={dateSearchQuery}
-            style={styles.searchBar}
-            inputStyle={{ fontSize: 13 }}
-          />
-        </View>
-
-        {filteredDateList.length === 0 ? (
-          <Text style={{ color: '#888', textAlign: 'center', marginVertical: spacing.md }}>
-            {dateSearchQuery ? 'No matching dates' : 'No dates in this month'}
-          </Text>
-        ) : (
-          filteredDateList.map((item) => {
-            const d = new Date(item.date)
-            const dayName = d.toLocaleDateString('en-IN', { weekday: 'short' })
-            return (
-              <TouchableOpacity
-                key={item.date}
-                onPress={() => setSelectedDate(item.date)}
-                activeOpacity={0.7}
-              >
-                <Card style={[styles.dateRow, selectedDate === item.date && { borderLeftWidth: 3, borderLeftColor: theme.colors.primary }]} mode="elevated">
-                  <Card.Content style={styles.dateRowContent}>
-                    <View style={styles.dateRowLeft}>
-                      <Text style={styles.dateDayNum}>{item.day}</Text>
-                      <View>
-                        <Text variant="bodyMedium" style={{ fontWeight: '600' }}>{dayName}</Text>
-                        <Text variant="bodySmall" style={{ color: '#888' }}>{item.date}</Text>
-                      </View>
-                    </View>
-                    {item.hasAttendance ? (
-                      <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}>
-                        <Chip compact style={{ backgroundColor: '#C8E6C9' }} textStyle={{ fontSize: 10, fontWeight: '600' }}>
-                          {item.doc?.attendance_records?.filter((r: any) => r.status === 'present').length || 0} P
-                        </Chip>
-                        <Chip compact style={{ backgroundColor: '#FFCDD2' }} textStyle={{ fontSize: 10, fontWeight: '600' }}>
-                          {item.doc?.attendance_records?.filter((r: any) => r.status !== 'present').length || 0} A
-                        </Chip>
-
-                      </View>
-                    ) : (
-                      <Chip compact style={{ backgroundColor: '#F5F5F5' }} textStyle={{ fontSize: 10, color: '#888' }}>Not marked</Chip>
-                    )}
-                  </Card.Content>
-                </Card>
-              </TouchableOpacity>
-            )
-          })
-        )}
-
-        {/* Student Search */}
-        <View style={styles.section}>
-          <Text variant="titleSmall" style={styles.sectionTitle}>Search Student</Text>
-          <Searchbar
-            placeholder="Search by name..."
-            onChangeText={setSearchQuery}
-            value={searchQuery}
-            style={styles.searchBar}
-            inputStyle={{ fontSize: 14 }}
-          />
-          {searchQuery.trim() ? (
-            <StudentSearchResults query={searchQuery} students={students} records={records} navigation={navigation} />
-          ) : null}
-        </View>
-
         {/* Monthly Stats */}
         <View style={styles.section}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -543,47 +449,6 @@ export default function FacultyAttendanceScreen({ navigation }: any) {
         </View>
 
       </ScrollView>
-    </View>
-  )
-}
-
-const st = StyleSheet.create({
-  studentRow: { flexDirection: 'row', alignItems: 'center' },
-  studentInfo: { flex: 1 },
-})
-
-function StudentSearchResults({ query, students, records, navigation }: any) {
-  const q = query.toLowerCase()
-  const filtered = students.filter((s: any) =>
-    (s.student_name || s.full_name || '').toLowerCase().includes(q)
-  )
-  if (filtered.length === 0) {
-    return <Text style={{ color: '#888', textAlign: 'center', marginTop: spacing.sm }}>No student found</Text>
-  }
-  return (
-    <View style={{ marginTop: spacing.sm }}>
-      {filtered.map((s: any) => (
-        <TouchableOpacity
-          key={s.id}
-          onPress={() => navigation.navigate('StudentAttendanceDetail', { studentId: s.id, studentName: s.student_name || s.full_name })}
-          activeOpacity={0.7}
-        >
-          <Card style={{ marginBottom: spacing.xs, borderRadius: radius.md }} mode="elevated">
-            <Card.Content style={st.studentRow}>
-              <View style={st.studentInfo}>
-                <Text variant="bodyMedium" style={{ fontWeight: '600' }}>{s.student_name || s.full_name}</Text>
-                <Text variant="bodySmall" style={{ color: '#888' }}>Roll: {s.roll_number || '-'}</Text>
-              </View>
-              {records[s.id] ? (
-                <Chip mode="flat" compact
-                  style={{ backgroundColor: records[s.id] === 'present' ? '#C8E6C9' : records[s.id] === 'absent' ? '#FFCDD2' : '#FFE0B2' }}
-                  textStyle={{ fontSize: 10, fontWeight: '600' }}
-                >{records[s.id].toUpperCase()}</Chip>
-              ) : null}
-            </Card.Content>
-          </Card>
-        </TouchableOpacity>
-      ))}
     </View>
   )
 }
@@ -658,12 +523,6 @@ const styles = StyleSheet.create({
   calDaySelected: { backgroundColor: '#0F4C81', borderRadius: 8 },
   calDayText: { fontSize: 13, fontWeight: '600', color: '#333' },
 
-  // Date list
-  dateRow: { marginHorizontal: spacing.md, marginBottom: spacing.xs, borderRadius: radius.md },
-  dateRowContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  dateRowLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  dateDayNum: { fontSize: 18, fontWeight: '700', color: '#333', width: 28 },
-
   section: { paddingHorizontal: spacing.md, paddingTop: spacing.md },
   sectionTitle: { fontWeight: '700', marginBottom: spacing.sm, color: '#333' },
 
@@ -672,8 +531,6 @@ const styles = StyleSheet.create({
   studentRow: { flexDirection: 'row', alignItems: 'center' },
   studentInfo: { flex: 1 },
   statusDot: { width: 12, height: 12, borderRadius: 6 },
-
-  searchBar: { borderRadius: radius.md, elevation: 0, backgroundColor: '#fff' },
 
   submitBtn: { marginHorizontal: spacing.md, marginTop: spacing.lg, borderRadius: radius.md },
 })
